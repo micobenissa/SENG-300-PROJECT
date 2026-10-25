@@ -2,13 +2,11 @@ package campusplan.domain;
 
 import java.util.Locale;
 
-public record Student(int id, String name, String email) {
+public record Student(String id, String name, String email) {
     public static final int MAX_NAME_LENGTH = 100;
 
     public Student {
-        if (id < 1) {
-            throw new IllegalArgumentException("Student ID must be positive.");
-        }
+        id = Rules.text(id, "Student ID", Integer.MAX_VALUE);
         name = Rules.text(name, "Name", MAX_NAME_LENGTH);
         email = validEmail(email);
     }
@@ -45,12 +43,12 @@ public record Student(int id, String name, String email) {
         }
         String trimmed = value.trim();
         int at = trimmed.indexOf('@');
-        if (trimmed.chars().anyMatch(Character::isWhitespace)
+        if (trimmed.codePoints().anyMatch(c -> Character.isWhitespace(c) || Character.isSpaceChar(c) || c == 0x85)
                 || at <= 0
                 || at != trimmed.lastIndexOf('@')
                 || at == trimmed.length() - 1) {
             throw new IllegalArgumentException("Email must contain one @ with text on both sides and no spaces.");
         }
-        return trimmed;
+        return emailKey(trimmed);
     }
 }

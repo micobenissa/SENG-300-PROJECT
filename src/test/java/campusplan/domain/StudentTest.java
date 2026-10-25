@@ -12,70 +12,82 @@ import org.junit.jupiter.params.provider.ValueSource;
 
 class StudentTest {
     @Test
-    void trimsNameAndEmail() {
-        Student student = new Student(1, "  Ava Chen ", " ava@example.com ");
+    void trimsIdNameAndEmail() {
+        Student student = new Student(" S1 ", "  Ava Chen ", " AVA@EXAMPLE.COM ");
 
-        assertEquals(1, student.id());
+        assertEquals("S1", student.id());
         assertEquals("Ava Chen", student.name());
         assertEquals("ava@example.com", student.email());
     }
 
     @Test
     void acceptsNameLengthBoundaries() {
-        assertEquals("A", new Student(1, "A", "a@x.ca").name());
+        assertEquals("A", new Student("S1", "A", "a@x.ca").name());
         String longest = "N".repeat(Student.MAX_NAME_LENGTH);
-        assertEquals(longest, new Student(1, longest, "a@x.ca").name());
+        assertEquals(longest, new Student("S1", longest, "a@x.ca").name());
     }
 
     @Test
     void rejectsNameOverLimit() {
         String tooLong = "N".repeat(Student.MAX_NAME_LENGTH + 1);
-        assertThrows(IllegalArgumentException.class, () -> new Student(1, tooLong, "a@x.ca"));
+        assertThrows(IllegalArgumentException.class, () -> new Student("S1", tooLong, "a@x.ca"));
     }
 
     @ParameterizedTest
     @NullAndEmptySource
     @ValueSource(strings = {" ", "\t"})
     void rejectsMissingName(String name) {
-        assertThrows(IllegalArgumentException.class, () -> new Student(1, name, "a@x.ca"));
-    }
-
-    @ParameterizedTest
-    @ValueSource(ints = {0, -1})
-    void rejectsNonPositiveId(int id) {
-        assertThrows(IllegalArgumentException.class, () -> new Student(id, "Ava", "a@x.ca"));
+        assertThrows(IllegalArgumentException.class, () -> new Student("S1", name, "a@x.ca"));
     }
 
     @ParameterizedTest
     @NullAndEmptySource
-    @ValueSource(strings = {" ", "ava.example.com", "@example.com", "ava@", "a@b@c.ca", "ava chen@x.ca", "ava@x .ca", "ava@\tx.ca"})
+    @ValueSource(strings = {" ", "\t"})
+    void rejectsMissingId(String id) {
+        assertThrows(IllegalArgumentException.class, () -> new Student(id, "Ava", "a@x.ca"));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"S1", "550e8400-e29b-41d4-a716-446655440000"})
+    void seedAndGeneratedStringIdsSurviveEdits(String id) {
+        Student student = new Student(id, "Ava", "a@x.ca");
+
+        assertEquals(id, student.id());
+        assertEquals(id, student.withName("Ava Chen").id());
+        assertEquals(id, student.withEmail("ava.chen@x.ca").id());
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "ava.example.com", "@example.com", "ava@", "a@b@c.ca", "ava chen@x.ca", "ava@x .ca", "ava@\tx.ca", "ava@x\u00a0.ca", "ava@x\u0085.ca"})
     void rejectsInvalidEmail(String email) {
-        assertThrows(IllegalArgumentException.class, () -> new Student(1, "Ava", email));
+        assertThrows(IllegalArgumentException.class, () -> new Student("S1", "Ava", email));
     }
 
     @Test
     void acceptsShortestValidEmail() {
-        assertEquals("a@b", new Student(1, "Ava", "a@b").email());
+        assertEquals("a@b", new Student("S1", "Ava", "a@b").email());
     }
 
     @Test
     void emailKeyIgnoresCaseAndSurroundingSpaces() {
-        Student student = new Student(1, "Ava", "Ava.Chen@Example.COM");
+        Student student = new Student("S1", "Ava", "Ava.Chen@Example.COM");
 
+        assertEquals("ava.chen@example.com", student.email());
         assertEquals("ava.chen@example.com", student.emailKey());
         assertEquals(student.emailKey(), Student.emailKey("  ava.chen@example.com "));
     }
 
     @Test
     void editsKeepIdAndValidate() {
-        Student student = new Student(7, "Ava", "ava@x.ca");
+        Student student = new Student("S7", "Ava", "ava@x.ca");
 
         Student renamed = student.withName(" Ava Chen ");
-        Student moved = student.withEmail("ava.chen@x.ca");
+        Student moved = student.withEmail(" AVA.CHEN@X.CA ");
 
-        assertEquals(7, renamed.id());
+        assertEquals("S7", renamed.id());
         assertEquals("Ava Chen", renamed.name());
-        assertEquals(7, moved.id());
+        assertEquals("S7", moved.id());
         assertEquals("ava.chen@x.ca", moved.email());
         assertThrows(IllegalArgumentException.class, () -> student.withName(" "));
         assertThrows(IllegalArgumentException.class, () -> student.withEmail("no-at-sign"));
@@ -84,7 +96,7 @@ class StudentTest {
 
     @Test
     void matchesPartialNameOrEmailIgnoringCase() {
-        Student student = new Student(1, "Ava Chen", "ava.chen@campus.ca");
+        Student student = new Student("S1", "Ava Chen", "ava.chen@campus.ca");
 
         assertTrue(student.matches("chen"));
         assertTrue(student.matches(" AVA "));
@@ -96,7 +108,7 @@ class StudentTest {
     @NullAndEmptySource
     @ValueSource(strings = {"  "})
     void rejectsBlankSearch(String query) {
-        Student student = new Student(1, "Ava", "ava@x.ca");
+        Student student = new Student("S1", "Ava", "ava@x.ca");
         assertThrows(IllegalArgumentException.class, () -> student.matches(query));
     }
 }
