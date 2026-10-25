@@ -1,0 +1,6 @@
+* text=auto
+mvnw text eol=lf
+*.cmd text eol=crlf
+/team export-ignore
+/.gitattributes export-ignore
+/.gitignore export-ignore
