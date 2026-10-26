@@ -20,6 +20,7 @@ public class JsonStorage implements Storage {
             .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
             .disable(MapperFeature.AUTO_DETECT_IS_GETTERS)
             .disable(MapperFeature.ALLOW_COERCION_OF_SCALARS)
+            .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
             .enable(DeserializationFeature.FAIL_ON_TRAILING_TOKENS)
             .enable(DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES)
             .enable(StreamReadFeature.STRICT_DUPLICATE_DETECTION)

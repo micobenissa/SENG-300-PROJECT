@@ -18,6 +18,7 @@ import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -62,6 +63,26 @@ class JsonStorageTest {
         assertThrows(IOException.class, storage::load);
         assertThrows(IOException.class, () -> storage.save(example()));
         assertEquals(invalid, Files.readString(path));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"capacity, 6, 100.9", "durationMinutes, 180, 180.9", "minimumAttendance, 2, 2.9"})
+    void fractionalIntegersAreRejectedWithoutOverwritingStorage(String field, int validValue,
+                                                                String fractionalValue) throws IOException {
+        Path path = directory.resolve("fractional.json");
+        JsonStorage storage = new JsonStorage(path);
+        storage.save(example());
+        String valid = Files.readString(path);
+        String invalid = valid.replace("\"" + field + "\" : " + validValue,
+                "\"" + field + "\" : " + fractionalValue);
+        assertNotEquals(valid, invalid);
+        Files.writeString(path, invalid, StandardCharsets.UTF_8);
+        byte[] before = Files.readAllBytes(path);
+
+        assertThrows(IOException.class, storage::load);
+        assertArrayEquals(before, Files.readAllBytes(path));
+        assertThrows(IOException.class, () -> storage.save(example()));
+        assertArrayEquals(before, Files.readAllBytes(path));
     }
 
     @Test void loadedDataMustSatisfyDomainAndReferenceRules() throws IOException {
