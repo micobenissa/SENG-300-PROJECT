@@ -22,6 +22,7 @@ import java.util.Locale;
 import java.util.Set;
 
 public final class ConsoleApp {
+    private static final int BOX_WIDTH = 64;
     // the service owns the records; the menu just collects input and shows results
     private final CampusPlanService service;
     // sample data stays separate from the user's saved data
@@ -40,10 +41,6 @@ public final class ConsoleApp {
     }
 
     public void run() throws IOException {
-        // starting empty is fine; loading the samples is still the user's choice
-        if (service.state().isEmpty()) {
-            out.println("No saved records. Select 5 to load the fictional sample data.");
-        }
         boolean running = true;
         // each action returns here, so a bad entry does not end the app
         while (running) {
@@ -77,11 +74,11 @@ public final class ConsoleApp {
                 running = false;
             } catch (IllegalArgumentException error) {
                 // show validation errors and let the next menu choice try again
-                out.println("Error: " + error.getMessage());
+                out.println("\n  Error: " + error.getMessage());
             } catch (IOException error) {
                 // keep the app open so saving can be tried again
-                out.println("Storage error: " + error.getMessage());
-                out.println("Changes are still in memory. Try Save again or make a backup before restarting.");
+                out.println("\n  Storage error: " + error.getMessage());
+                out.println("  Changes are still in memory. Try Save again or make a backup before restarting.");
             }
         }
         // flush the last message before returning control to the terminal
@@ -91,12 +88,24 @@ public final class ConsoleApp {
 
     private void printMainMenu() {
         heading("CampusPlan | P1");
-        out.println("1  Students\n2  Rooms\n3  Availability\n4  Draft events");
-        out.println("5  Load sample data\n6  Save\n0  Exit");
-        // keep the reminder visible until a save succeeds
-        if (dirty) {
-            out.println("Unsaved changes");
+        var state = service.state();
+        boxRow(String.format("%d students  /  %d rooms  /  %d drafts", state.students().size(),
+                state.rooms().size(), state.events().size()));
+        boxRow("Status: " + (dirty ? "Unsaved changes" : "No pending changes"));
+        if (state.isEmpty()) {
+            boxRow("No saved records. Select [5] to load sample data.");
         }
+        menuSection("WORKSPACE");
+        option("1", "Students", "Create, edit and search");
+        option("2", "Rooms", "Browse and filter");
+        option("3", "Availability", "View and update times");
+        option("4", "Draft events", "Create and edit plans");
+        menuSection("DATA");
+        option("5", "Load sample data");
+        option("6", "Save changes");
+        border();
+        option("0", "Exit");
+        border();
     }
 
     private void loadSampleData() throws IOException {
@@ -113,7 +122,14 @@ public final class ConsoleApp {
 
     private void students() throws IOException {
         heading("Students");
-        out.println("1  List\n2  Create\n3  Edit\n4  Search\n0  Back");
+        option("1", "List students");
+        option("2", "Create student");
+        option("3", "Edit student");
+        option("4", "Search students");
+        border();
+        option("0", "Back");
+        border();
+        out.println();
         switch (read("Choice")) {
             case "1" -> printStudents(service.state().students());
             case "2" -> {
@@ -141,7 +157,12 @@ public final class ConsoleApp {
 
     private void rooms() throws IOException {
         heading("Rooms | open 08:00-22:00");
-        out.println("1  List\n2  Filter\n0  Back");
+        option("1", "List rooms");
+        option("2", "Filter rooms");
+        border();
+        option("0", "Back");
+        border();
+        out.println();
         String choice = read("Choice");
         // backing out should not ask for any filter values
         if (choice.equals("0")) {
@@ -156,19 +177,27 @@ public final class ConsoleApp {
         Set<Feature> required = choice.equals("2") ? features() : Set.of();
         // the service checks capacity and makes sure every requested feature matches
         var matches = service.filterRooms(capacity, required);
+        section("ROOM CATALOGUE");
         if (matches.isEmpty()) {
             out.println("No rooms match these requirements.");
         }
         // keep room ids visible even though this menu does not edit rooms
         for (var room : matches) {
-            out.printf("%s | %d seats | %s | ID %s%n", room.name(), room.capacity(),
-                    featureNames(room.features()), room.id());
+            out.printf("    %s | %d seats | %s%n", room.name(), room.capacity(),
+                    featureNames(room.features()));
+            out.println("      ID: " + room.id());
+            out.println();
         }
     }
 
     private void availability() throws IOException {
         heading("Availability");
-        out.println("1  View\n2  Replace one date\n0  Back");
+        option("1", "View availability");
+        option("2", "Replace one date");
+        border();
+        option("0", "Back");
+        border();
+        out.println();
         String choice = read("Choice");
         if (choice.equals("0")) {
             return;
@@ -190,12 +219,18 @@ public final class ConsoleApp {
         // show only this student's intervals, across all their recorded dates
         var intervals = service.state().availability().stream()
                 .filter(interval -> interval.studentId().equals(student.id())).toList();
-        out.println(student.name() + " | " + student.id());
+        section("AVAILABILITY / " + student.name());
+        out.println("  Student ID: " + student.id());
+        out.println();
         if (intervals.isEmpty()) {
             out.println("No availability recorded.");
         }
         // show the dates as well, since one student can have several days recorded
-        intervals.forEach(interval -> out.printf("%s | %s-%s%n", interval.date(), interval.start(), interval.end()));
+        if (!intervals.isEmpty()) {
+            out.printf("    %-12s %s%n", "DATE", "AVAILABLE");
+            out.printf("    %-12s %s%n", "----------", "-----------");
+            intervals.forEach(interval -> out.printf("    %-12s %s-%s%n", interval.date(), interval.start(), interval.end()));
+        }
     }
 
     private void replaceAvailability(Student student) throws IOException {
@@ -223,7 +258,14 @@ public final class ConsoleApp {
 
     private void drafts() throws IOException {
         heading("Draft events");
-        out.println("1  List\n2  Create\n3  Edit\n4  Details\n0  Back");
+        option("1", "List drafts");
+        option("2", "Create draft");
+        option("3", "Edit draft");
+        option("4", "View details");
+        border();
+        option("0", "Back");
+        border();
+        out.println();
         switch (read("Choice")) {
             case "1" -> printEvents();
             // the same form handles a new draft or an existing draft
@@ -261,11 +303,14 @@ public final class ConsoleApp {
 
     private List<String> readInviteeIds() throws IOException {
         printStudents(service.state().students());
-        String selected = read("Invitee numbers, separated by commas");
+        out.println("  Choose 2-20 different students from the list above.");
+        out.println("  Use the number before each name, not their ID, name or email.");
+        out.println("  Example: 1,2 selects the first and second students.");
+        String selected = read("Student list numbers, separated by commas");
         List<String> invitees = new ArrayList<>();
         // keep empty entries so a trailing comma is caught as bad input too
         for (String number : selected.split(",", -1)) {
-            int index = parseInteger(number.trim(), "Invitee number");
+            int index = parseInteger(number.trim(), "Student list number");
             // store the actual id, not the position shown in the menu
             invitees.add(at(service.state().students(), index, "student").id());
         }
@@ -294,6 +339,7 @@ public final class ConsoleApp {
     }
 
     private void printStudents(List<Student> students) {
+        section("STUDENT RECORDS");
         // an empty search or list should still give the user a clear result
         if (students.isEmpty()) {
             out.println("No students found.");
@@ -301,35 +347,43 @@ public final class ConsoleApp {
         for (int i = 0; i < students.size(); i++) {
             var student = students.get(i);
             // the number is for choosing a row; the id belongs to the stored record
-            out.printf("%d. %s | %s | ID %s%n", i + 1, student.name(), student.email(), student.id());
+            out.printf("    %d. %s | %s%n", i + 1, student.name(), student.email());
+            out.println("       ID: " + student.id());
+            out.println();
         }
     }
 
     private void printEvents() {
         var events = service.state().events();
+        section("DRAFT RECORDS");
         if (events.isEmpty()) {
             out.println("No draft events.");
         }
         // p1 events are drafts, so this list does not try to schedule or confirm them
         for (int i = 0; i < events.size(); i++) {
             var event = events.get(i);
-            out.printf("%d. %s | DRAFT | %s to %s | ID %s%n", i + 1, event.title(),
-                    event.startDate(), event.endDate(), event.id());
+            out.printf("    %d. %s | DRAFT%n", i + 1, event.title());
+            out.printf("       %s to %s | %d minutes%n", event.startDate(), event.endDate(), event.durationMinutes());
+            out.println("       ID: " + event.id());
+            out.println();
         }
     }
 
     private void printEvent(DraftEvent event) {
+        section("DRAFT DETAILS");
         // show the id here too so an edited draft can be recognised later
-        out.println("Title: " + event.title());
-        out.println("ID: " + event.id());
-        out.println("Status: DRAFT");
+        out.println("  Title: " + event.title());
+        out.println("  ID: " + event.id());
+        out.println("  Status: DRAFT");
+        out.println();
         // show the planning window and constraints before the invitee responses
-        out.printf("Window: %s to %s | Duration: %d minutes%n", event.startDate(), event.endDate(), event.durationMinutes());
-        out.printf("Minimum attendance: %d of %d%n", event.minimumAttendance(), event.inviteeIds().size());
-        out.println("Required features: " + featureNames(event.requiredFeatures()));
+        out.printf("  Window: %s to %s | Duration: %d minutes%n", event.startDate(), event.endDate(), event.durationMinutes());
+        out.printf("  Minimum attendance: %d of %d%n", event.minimumAttendance(), event.inviteeIds().size());
+        out.println("  Required features: " + featureNames(event.requiredFeatures()));
+        section("INVITEES");
         // responses stay pending in p1; saving a draft does not confirm attendance
         for (String id : event.inviteeIds()) {
-            out.println("  " + service.student(id).name() + " | PENDING");
+            out.println("    " + service.student(id).name() + " | PENDING");
         }
     }
 
@@ -390,7 +444,7 @@ public final class ConsoleApp {
     }
 
     private String read(String prompt) throws IOException {
-        out.print(prompt + ": ");
+        out.print("  " + prompt + " > ");
         // print the prompt before waiting for input, even without a newline
         out.flush();
         String line = input.readLine();
@@ -405,22 +459,58 @@ public final class ConsoleApp {
     private void heading(String title) {
         // use one layout for the main menu and each submenu
         out.println();
-        out.println("+----------------------------------------------------------+");
-        out.printf("| %-56s |%n", title);
-        out.println("+----------------------------------------------------------+");
+        border();
+        int padding = Math.max(0, (BOX_WIDTH - title.length()) / 2);
+        boxRow(" ".repeat(padding) + title);
+        border();
+    }
+
+    private void section(String title) {
+        heading(title);
+        out.println();
+    }
+
+    private void menuSection(String title) {
+        border();
+        boxRow(title);
+    }
+
+    private void border() {
+        out.println("  +" + "-".repeat(BOX_WIDTH + 2) + "+");
+    }
+
+    private void boxRow(String text) {
+        // Wrap long record headings instead of letting them break the right border.
+        while (text.length() > BOX_WIDTH) {
+            int split = text.lastIndexOf(' ', BOX_WIDTH);
+            if (split <= 0) {
+                split = BOX_WIDTH;
+            }
+            out.printf("  | %-" + BOX_WIDTH + "s |%n", text.substring(0, split));
+            text = text.substring(split).stripLeading();
+        }
+        out.printf("  | %-" + BOX_WIDTH + "s |%n", text);
+    }
+
+    private void option(String key, String label) {
+        boxRow("  [" + key + "] " + label);
+    }
+
+    private void option(String key, String label, String description) {
+        boxRow(String.format("  [%s] %-18s %s", key, label, description));
     }
 
     private void changed(String message) {
         // successful edits need a save, but viewing records does not
         dirty = true;
-        out.println(message);
+        out.println("\n  " + message);
     }
 
     private void save() throws IOException {
         service.save();
         // only clear this after saving works, so a failed save keeps the reminder
         dirty = false;
-        out.println("Saved.");
+        out.println("\n  Saved.");
     }
 
     private boolean exit() throws IOException {
