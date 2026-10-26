@@ -1,0 +1,190 @@
+{
+  "students": [
+    {
+      "id": "S1",
+      "name": "Avery Park",
+      "email": "avery.park@example.test"
+    },
+    {
+      "id": "S2",
+      "name": "Jordan Lee",
+      "email": "jordan.lee@example.test"
+    },
+    {
+      "id": "S3",
+      "name": "Casey Morgan",
+      "email": "casey.morgan@example.test"
+    },
+    {
+      "id": "S4",
+      "name": "Taylor Brooks",
+      "email": "taylor.brooks@example.test"
+    },
+    {
+      "id": "S5",
+      "name": "Morgan Chen",
+      "email": "morgan.chen@example.test"
+    },
+    {
+      "id": "S6",
+      "name": "Riley Singh",
+      "email": "riley.singh@example.test"
+    },
+    {
+      "id": "S7",
+      "name": "Alex Rivera",
+      "email": "alex.rivera@example.test"
+    },
+    {
+      "id": "S8",
+      "name": "Jamie Patel",
+      "email": "jamie.patel@example.test"
+    },
+    {
+      "id": "S9",
+      "name": "Robin Ellis",
+      "email": "robin.ellis@example.test"
+    },
+    {
+      "id": "S10",
+      "name": "Cameron Wu",
+      "email": "cameron.wu@example.test"
+    },
+    {
+      "id": "S11",
+      "name": "Drew Adams",
+      "email": "drew.adams@example.test"
+    },
+    {
+      "id": "S12",
+      "name": "Quinn Davis",
+      "email": "quinn.davis@example.test"
+    }
+  ],
+  "rooms": [
+    {
+      "id": "R1",
+      "name": "Cedar 101",
+      "capacity": 6,
+      "features": [
+        "WHITEBOARD",
+        "ACCESSIBLE"
+      ]
+    },
+    {
+      "id": "R2",
+      "name": "Maple 202",
+      "capacity": 12,
+      "features": [
+        "WHITEBOARD",
+        "PROJECTOR"
+      ]
+    },
+    {
+      "id": "R3",
+      "name": "Pine 103",
+      "capacity": 4,
+      "features": []
+    },
+    {
+      "id": "R4",
+      "name": "Oak 204",
+      "capacity": 20,
+      "features": [
+        "WHITEBOARD",
+        "PROJECTOR",
+        "ACCESSIBLE"
+      ]
+    },
+    {
+      "id": "R5",
+      "name": "Birch 105",
+      "capacity": 8,
+      "features": [
+        "PROJECTOR",
+        "ACCESSIBLE"
+      ]
+    },
+    {
+      "id": "R6",
+      "name": "Spruce 106",
+      "capacity": 2,
+      "features": [
+        "WHITEBOARD"
+      ]
+    }
+  ],
+  "availability": [],
+  "events": [
+    {
+      "id": "E1",
+      "title": "Project planning",
+      "inviteeIds": [
+        "S1",
+        "S2",
+        "S3",
+        "S4",
+        "S5",
+        "S6"
+      ],
+      "startDate": "2026-10-24",
+      "endDate": "2026-10-24",
+      "durationMinutes": 120,
+      "requiredFeatures": [
+        "WHITEBOARD"
+      ],
+      "minimumAttendance": 4,
+      "status": "DRAFT",
+      "responses": {
+        "S1": "PENDING",
+        "S2": "PENDING",
+        "S3": "PENDING",
+        "S4": "PENDING",
+        "S5": "PENDING",
+        "S6": "PENDING"
+      }
+    },
+    {
+      "id": "E2",
+      "title": "Evening workshop",
+      "inviteeIds": [
+        "S6",
+        "S7",
+        "S8"
+      ],
+      "startDate": "2026-10-25",
+      "endDate": "2026-10-27",
+      "durationMinutes": 60,
+      "requiredFeatures": [
+        "PROJECTOR"
+      ],
+      "minimumAttendance": 2,
+      "status": "DRAFT",
+      "responses": {
+        "S6": "PENDING",
+        "S7": "PENDING",
+        "S8": "PENDING"
+      }
+    },
+    {
+      "id": "E3",
+      "title": "Study group",
+      "inviteeIds": [
+        "S1",
+        "S2",
+        "S3"
+      ],
+      "startDate": "2026-10-28",
+      "endDate": "2026-10-30",
+      "durationMinutes": 90,
+      "requiredFeatures": [],
+      "minimumAttendance": 3,
+      "status": "DRAFT",
+      "responses": {
+        "S1": "PENDING",
+        "S2": "PENDING",
+        "S3": "PENDING"
+      }
+    }
+  ]
+}
