@@ -200,7 +200,7 @@ public final class ConsoleApp {
 
     private void replaceAvailability(Student student) throws IOException {
         // replacing one date leaves the student's other dates alone
-        LocalDate date = date("Date (YYYY-MM-DD)");
+        LocalDate date = date("Date (YYYY-MM-DD, today or later)");
         int count = integer("Number of intervals (0 clears this date)");
         // there are at most 28 half-hour slots between 08:00 and 22:00
         if (count < 0 || count > 28) {
@@ -244,7 +244,7 @@ public final class ConsoleApp {
         String title = read("Title");
         // the form uses menu numbers, then turns those into student ids
         List<String> invitees = readInviteeIds();
-        LocalDate start = date("First date (YYYY-MM-DD)");
+        LocalDate start = date("First date (YYYY-MM-DD, today or later)");
         LocalDate end = date("Last date (YYYY-MM-DD)");
         // keep all the planning fields local until the whole form has been read
         int duration = integer("Duration in minutes (30-180, steps of 30)");

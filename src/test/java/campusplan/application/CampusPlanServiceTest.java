@@ -11,8 +11,10 @@ import campusplan.persistence.InMemoryStorage;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
@@ -21,10 +23,11 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class CampusPlanServiceTest {
     private static final LocalDate DAY = LocalDate.of(2026, 10, 26);
+    private static final Clock CLOCK = Clock.fixed(DAY.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
 
     @Test
     void createsEditsSearchesAndPreservesStudentId() throws IOException {
-        CampusPlanService service = new CampusPlanService(new TestStorage());
+        CampusPlanService service = new CampusPlanService(new TestStorage(), CLOCK);
         Student alex = service.createStudent(" Alex Reed ", " ALEX@CAMPUS.TEST ");
         Student sam = service.createStudent("Sam Park", "sam@campus.test");
         assertNotEquals(alex.id(), sam.id());
@@ -42,7 +45,7 @@ class CampusPlanServiceTest {
 
     @Test
     void duplicateOrInvalidStudentMutationsLeaveStateUnchanged() throws IOException {
-        CampusPlanService service = new CampusPlanService(new TestStorage());
+        CampusPlanService service = new CampusPlanService(new TestStorage(), CLOCK);
         Student alex = service.createStudent("Alex", "a@b");
         Student sam = service.createStudent("Sam", "s@b");
         AppState before = service.state();
@@ -63,7 +66,7 @@ class CampusPlanServiceTest {
                 new Room("r1", "Small", 5, Set.of(Feature.WHITEBOARD)),
                 new Room("r2", "Medium", 6, Set.of(Feature.WHITEBOARD, Feature.ACCESSIBLE)),
                 new Room("r3", "Large", 20, Set.of(Feature.PROJECTOR))), List.of(), List.of());
-        CampusPlanService service = new CampusPlanService(storage);
+        CampusPlanService service = new CampusPlanService(storage, CLOCK);
         assertEquals(List.of("r2"), service.filterRooms(6, Set.of(Feature.WHITEBOARD, Feature.ACCESSIBLE))
                 .stream().map(Room::id).toList());
         assertEquals(3, service.filterRooms(1, Set.of()).size());
@@ -78,7 +81,7 @@ class CampusPlanServiceTest {
 
     @Test
     void replacesOneDaysAvailabilityAndMergesAdjacentIntervals() throws IOException {
-        CampusPlanService service = new CampusPlanService(new TestStorage());
+        CampusPlanService service = new CampusPlanService(new TestStorage(), CLOCK);
         Student alex = service.createStudent("Alex", "a@b");
         Student sam = service.createStudent("Sam", "s@b");
         service.setAvailability(alex.id(), DAY.plusDays(1), List.of(interval(alex.id(), DAY.plusDays(1), 9, 10)));
@@ -95,7 +98,7 @@ class CampusPlanServiceTest {
 
     @Test
     void rejectsMismatchedAvailabilityWithoutChangingState() throws IOException {
-        CampusPlanService service = new CampusPlanService(new TestStorage());
+        CampusPlanService service = new CampusPlanService(new TestStorage(), CLOCK);
         Student alex = service.createStudent("Alex", "a@b");
         AppState before = service.state();
         assertThrows(IllegalArgumentException.class, () -> service.setAvailability("missing", DAY, List.of()));
@@ -141,7 +144,7 @@ class CampusPlanServiceTest {
 
     @Test
     void seedOnlyLoadsIntoCompletelyEmptyApplication() throws IOException {
-        CampusPlanService service = new CampusPlanService(new TestStorage());
+        CampusPlanService service = new CampusPlanService(new TestStorage(), CLOCK);
         AppState seed = new AppState(List.of(new Student("s1", "Alex", "a@b")), List.of(), List.of(), List.of());
         assertThrows(IllegalArgumentException.class, () -> service.loadSeed(null));
         service.loadSeed(seed);
@@ -153,12 +156,12 @@ class CampusPlanServiceTest {
     @Test
     void storageIsExplicitAndSurvivesNewServiceInstance() throws IOException {
         InMemoryStorage storage = new InMemoryStorage();
-        CampusPlanService service = new CampusPlanService(storage);
+        CampusPlanService service = new CampusPlanService(storage, CLOCK);
         Student student = service.createStudent("Alex", "a@b");
         assertTrue(storage.load().isEmpty());
         service.save();
         assertEquals(service.state(), storage.load());
-        assertEquals(student, new CampusPlanService(storage).student(student.id()));
+        assertEquals(student, new CampusPlanService(storage, CLOCK).student(student.id()));
     }
 
     @Test
@@ -167,12 +170,12 @@ class CampusPlanServiceTest {
             @Override public AppState load() throws IOException { throw new IOException("Read failed"); }
             @Override public void save(AppState state) {}
         };
-        assertThrows(IOException.class, () -> new CampusPlanService(broken));
+        assertThrows(IOException.class, () -> new CampusPlanService(broken, CLOCK));
         Storage failingSave = new Storage() {
             @Override public AppState load() { return AppState.empty(); }
             @Override public void save(AppState state) throws IOException { throw new IOException("Disk full"); }
         };
-        CampusPlanService service = new CampusPlanService(failingSave);
+        CampusPlanService service = new CampusPlanService(failingSave, CLOCK);
         service.createStudent("Alex", "a@b");
         AppState before = service.state();
         assertThrows(IOException.class, service::save);
@@ -180,7 +183,7 @@ class CampusPlanServiceTest {
     }
 
     private static CampusPlanService withStudents() throws IOException {
-        CampusPlanService service = new CampusPlanService(new TestStorage());
+        CampusPlanService service = new CampusPlanService(new TestStorage(), CLOCK);
         service.createStudent("Alex", "a@b");
         service.createStudent("Sam", "s@b");
         return service;

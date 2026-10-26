@@ -12,8 +12,10 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.io.StringReader;
 import java.io.StringWriter;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 
@@ -22,11 +24,14 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class ConsoleAppTest {
+    private static final Clock CLOCK = Clock.fixed(LocalDate.of(2026, 10, 24)
+            .atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
+
     @Test
     void workingSliceCreatesRejectsDuplicateMergesFiltersCreatesDraftAndReloads() throws IOException {
         // start empty so loading the samples is part of the test too
         var storage = new TestStorage(AppState.empty());
-        var service = new CampusPlanService(storage);
+        var service = new CampusPlanService(storage, CLOCK);
         // these are the answers to the menus, in the same order a user would enter them
         String output = run(service, sample(), """
                 5
@@ -72,7 +77,7 @@ class ConsoleAppTest {
         assertTrue(output.contains("Alex Morgan | PENDING"));
         assertTrue(output.contains("Saved."));
         // opening a new service checks what actually reached storage
-        var reloaded = new CampusPlanService(storage);
+        var reloaded = new CampusPlanService(storage, CLOCK);
         assertEquals(3, reloaded.state().students().size());
         assertEquals(1, reloaded.state().availability().size());
         assertEquals(LocalTime.of(11, 0), reloaded.state().availability().getFirst().end());
@@ -83,7 +88,7 @@ class ConsoleAppTest {
     @Test
     void editSearchAndDetailsUseCurrentRecordsAndPreserveIds() throws IOException {
         var storage = new TestStorage(sample().load());
-        var service = new CampusPlanService(storage);
+        var service = new CampusPlanService(storage, CLOCK);
         service.createDraft("Original", List.of("s1", "s2"), LocalDate.of(2026, 10, 24),
                 LocalDate.of(2026, 10, 24), 30, Set.of(), 2);
         // keep the original id so the edit cannot silently replace the record
@@ -125,7 +130,7 @@ class ConsoleAppTest {
 
     @Test
     void badInputReturnsToMenuAndDoesNotPartiallyChangeRecords() throws IOException {
-        var service = new CampusPlanService(new TestStorage(sample().load()));
+        var service = new CampusPlanService(new TestStorage(sample().load()), CLOCK);
         AppState original = service.state();
         // try bad menu, number, feature, date, time and event selections
         String output = run(service, sample(), """
@@ -166,7 +171,7 @@ class ConsoleAppTest {
     @Test
     void eofSavesCompletedChangesAndDoesNotLoop() throws IOException {
         var storage = new TestStorage(AppState.empty());
-        var service = new CampusPlanService(storage);
+        var service = new CampusPlanService(storage, CLOCK);
         // stop giving input straight after the student form is complete
         String output = run(service, sample(), "1\n2\nAlex\nalex@example.test\n");
         assertEquals(1, storage.value.students().size());
@@ -177,7 +182,7 @@ class ConsoleAppTest {
     @Test
     void eofDuringFormLeavesStateUntouched() throws IOException {
         var storage = new TestStorage(AppState.empty());
-        var service = new CampusPlanService(storage);
+        var service = new CampusPlanService(storage, CLOCK);
         // the email never arrives, so this should not create half a student record
         String output = run(service, sample(), "1\n2\nUnfinished name\n");
         assertTrue(service.state().isEmpty());
@@ -189,7 +194,7 @@ class ConsoleAppTest {
     void failedSaveKeepsChangesAndExitCanBeCancelled() throws IOException {
         var storage = new TestStorage(AppState.empty());
         storage.failSave = true;
-        var service = new CampusPlanService(storage);
+        var service = new CampusPlanService(storage, CLOCK);
         // fail a save, cancel exiting once, then choose to leave without saving
         String output = run(service, sample(), "1\n2\nAlex\nalex@example.test\n6\n0\ncancel\n0\nno\n");
         assertTrue(output.contains("Storage error: disk full"));
@@ -201,17 +206,50 @@ class ConsoleAppTest {
 
     @Test
     void seedCannotReplaceExistingDataAndMissingSeedIsReported() throws IOException {
-        var service = new CampusPlanService(new TestStorage(sample().load()));
+        var service = new CampusPlanService(new TestStorage(sample().load()), CLOCK);
         AppState original = service.state();
         // loading samples must not wipe records already in the session
         assertTrue(run(service, sample(), "5\n0\n").contains("only be loaded into an empty application"));
         assertEquals(original, service.state());
         // also check the message when the sample source has nothing to load
-        var empty = new CampusPlanService(new TestStorage(AppState.empty()));
+        var empty = new CampusPlanService(new TestStorage(AppState.empty()), CLOCK);
         String output = run(empty, new TestStorage(AppState.empty()), "5\n0\n");
         assertTrue(output.contains("sample file is missing"));
         assertTrue(empty.state().isEmpty());
         assertFalse(output.contains("Sample data loaded."));
+    }
+
+    @Test
+    void pastDatesAreReportedAndReturnToTheMenuWithoutChangingRecords() throws IOException {
+        var storage = new TestStorage(sample().load());
+        var service = new CampusPlanService(storage, CLOCK);
+        AppState before = service.state();
+        String output = run(service, sample(), """
+                3
+                2
+                1
+                2026-10-23
+                1
+                09:00
+                10:00
+                4
+                2
+                Past meeting
+                1,2
+                2026-10-23
+                2026-10-25
+                60
+
+                2
+                0
+                """);
+        assertTrue(output.contains("Availability date cannot be in the past"));
+        assertTrue(output.contains("Event window start date cannot be in the past"));
+        assertTrue(output.contains("Choose today (2026-10-24) or a future date."));
+        assertEquals(before, service.state());
+        assertEquals(before, storage.load());
+        assertFalse(output.contains("Unsaved changes"));
+        assertTrue(output.contains("CampusPlan closed."));
     }
 
     private TestStorage sample() {

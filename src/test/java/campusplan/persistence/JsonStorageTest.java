@@ -11,8 +11,10 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneOffset;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
@@ -23,6 +25,9 @@ import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 class JsonStorageTest {
+    private static final Clock CLOCK = Clock.fixed(LocalDate.of(2026, 10, 24)
+            .atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC);
+
     @TempDir Path directory;
 
     private AppState example() {
@@ -119,13 +124,13 @@ class JsonStorageTest {
 
     @Test void serviceToFileRestartPreservesNewStudentAndDraftEdit() throws IOException {
         Path path = directory.resolve("state.json");
-        CampusPlanService first = new CampusPlanService(new JsonStorage(path));
+        CampusPlanService first = new CampusPlanService(new JsonStorage(path), CLOCK);
         first.loadSeed(example());
         Student student = first.createStudent("Demo Student", "demo@example.test");
         first.editDraft("e1", "Updated", List.of("s1", student.id()),
                 LocalDate.of(2026, 10, 24), LocalDate.of(2026, 10, 24), 30, Set.of(), 2);
         first.save();
-        CampusPlanService second = new CampusPlanService(new JsonStorage(path));
+        CampusPlanService second = new CampusPlanService(new JsonStorage(path), CLOCK);
         assertEquals(first.state(), second.state());
         assertEquals(student, second.student(student.id()));
         assertEquals("Updated", second.event("e1").title());

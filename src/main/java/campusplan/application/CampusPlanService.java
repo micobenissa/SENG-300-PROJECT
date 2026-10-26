@@ -9,6 +9,7 @@ import campusplan.domain.Student;
 import campusplan.persistence.Storage;
 
 import java.io.IOException;
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -19,11 +20,17 @@ import java.util.UUID;
 
 public final class CampusPlanService {
     private final Storage storage;
+    private final Clock clock;
     // Each edit builds a valid replacement before it can replace the current state.
     private AppState state;
 
     public CampusPlanService(Storage storage) throws IOException {
+        this(storage, Clock.systemDefaultZone());
+    }
+
+    public CampusPlanService(Storage storage, Clock clock) throws IOException {
         this.storage = Objects.requireNonNull(storage);
+        this.clock = Objects.requireNonNull(clock);
         state = Objects.requireNonNull(storage.load(), "Storage returned no state.");
     }
 
@@ -88,6 +95,7 @@ public final class CampusPlanService {
                 throw new IllegalArgumentException("Each interval must match the selected student and date.");
             }
         }
+        requireCurrentOrFuture(date, "Availability date");
         // Replace only this date; leave the student's other dates and everyone else alone.
         List<Availability> updated = new ArrayList<>(state.availability().stream()
                 .filter(interval -> !(studentId.equals(interval.studentId()) && date.equals(interval.date()))).toList());
@@ -101,6 +109,7 @@ public final class CampusPlanService {
                                   int durationMinutes, Set<Feature> requiredFeatures, int minimumAttendance) {
         DraftEvent event = new DraftEvent(UUID.randomUUID().toString(), title, inviteeIds,
                 startDate, endDate, durationMinutes, requiredFeatures, minimumAttendance);
+        requireCurrentOrFuture(event.startDate(), "Event window start date");
         List<DraftEvent> events = new ArrayList<>(state.events());
         events.add(event);
         state = new AppState(state.students(), state.rooms(), state.availability(), events);
@@ -113,6 +122,7 @@ public final class CampusPlanService {
         DraftEvent previous = event(id);
         DraftEvent replacement = new DraftEvent(previous.id(), title, inviteeIds,
                 startDate, endDate, durationMinutes, requiredFeatures, minimumAttendance);
+        requireCurrentOrFuture(replacement.startDate(), "Event window start date");
         List<DraftEvent> events = new ArrayList<>(state.events());
         events.set(events.indexOf(previous), replacement);
         state = new AppState(state.students(), state.rooms(), state.availability(), events);
@@ -131,5 +141,14 @@ public final class CampusPlanService {
 
     public void save() throws IOException {
         storage.save(state);
+    }
+
+    private void requireCurrentOrFuture(LocalDate date, String field) {
+        // Check user edits here so saved records can still load after their dates pass.
+        LocalDate today = LocalDate.now(clock);
+        if (date.isBefore(today)) {
+            throw new IllegalArgumentException(field + " cannot be in the past. Choose today ("
+                    + today + ") or a future date.");
+        }
     }
 }
