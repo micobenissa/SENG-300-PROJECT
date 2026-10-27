@@ -1,0 +1,538 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>ConsoleApp.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">campusplan</a> &gt; <a href="index.source.html" class="el_package">campusplan.cli</a> &gt; <span class="el_source">ConsoleApp.java</span></div><h1>ConsoleApp.java</h1><pre class="source lang-java linenums">package campusplan.cli;
+
+import campusplan.application.CampusPlanService;
+import campusplan.domain.Availability;
+import campusplan.domain.DraftEvent;
+import campusplan.domain.Feature;
+import campusplan.domain.Student;
+import campusplan.persistence.Storage;
+
+import java.io.BufferedReader;
+import java.io.EOFException;
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Reader;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.format.DateTimeParseException;
+import java.util.ArrayList;
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
+public final class ConsoleApp {
+    private static final int BOX_WIDTH = 64;
+    // the service owns the records; the menu just collects input and shows results
+    private final CampusPlanService service;
+    // sample data stays separate from the user's saved data
+    private final Storage seed;
+    private final BufferedReader input;
+    private final PrintWriter out;
+    // this stays true until the current changes have actually been saved
+    private boolean dirty;
+
+<span class="fc" id="L35">    public ConsoleApp(CampusPlanService service, Storage seed, Reader input, PrintWriter out) {</span>
+<span class="fc" id="L36">        this.service = service;</span>
+<span class="fc" id="L37">        this.seed = seed;</span>
+        // every menu reads from the same input, including the tests
+<span class="fc" id="L39">        this.input = new BufferedReader(input);</span>
+<span class="fc" id="L40">        this.out = out;</span>
+<span class="fc" id="L41">    }</span>
+
+    public void run() throws IOException {
+<span class="fc" id="L44">        boolean running = true;</span>
+        // each action returns here, so a bad entry does not end the app
+<span class="fc bfc" id="L46" title="All 2 branches covered.">        while (running) {</span>
+            try {
+<span class="fc" id="L48">                printMainMenu();</span>
+<span class="fc bfc" id="L49" title="All 8 branches covered.">                switch (read(&quot;Choice&quot;)) {</span>
+<span class="fc" id="L50">                    case &quot;1&quot; -&gt; students();</span>
+<span class="fc" id="L51">                    case &quot;2&quot; -&gt; rooms();</span>
+<span class="fc" id="L52">                    case &quot;3&quot; -&gt; availability();</span>
+<span class="fc" id="L53">                    case &quot;4&quot; -&gt; drafts();</span>
+<span class="fc" id="L54">                    case &quot;5&quot; -&gt; loadSampleData();</span>
+<span class="fc" id="L55">                    case &quot;6&quot; -&gt; save();</span>
+                    // exit can return true when the user cancels the exit prompt
+<span class="fc" id="L57">                    case &quot;0&quot; -&gt; running = exit();</span>
+<span class="fc" id="L58">                    default -&gt; out.println(&quot;Choose a listed option.&quot;);</span>
+                }
+<span class="fc" id="L60">            } catch (EOFException end) {</span>
+<span class="fc" id="L61">                out.println(&quot;\nInput ended.&quot;);</span>
+                // input can end halfway through a form, so only save completed changes
+<span class="fc bfc" id="L63" title="All 2 branches covered.">                if (dirty) {</span>
+<span class="fc" id="L64">                    out.println(&quot;Saving pending changes before closing.&quot;);</span>
+                    try {
+<span class="fc" id="L66">                        save();</span>
+<span class="nc" id="L67">                    } catch (IOException error) {</span>
+                        // there is no more input to retry with, so report the failed save
+<span class="nc" id="L69">                        out.println(&quot;Pending changes could not be saved: &quot; + error.getMessage());</span>
+<span class="nc" id="L70">                        out.flush();</span>
+<span class="nc" id="L71">                        throw error;</span>
+<span class="fc" id="L72">                    }</span>
+                }
+<span class="fc" id="L74">                running = false;</span>
+<span class="fc" id="L75">            } catch (IllegalArgumentException error) {</span>
+                // show validation errors and let the next menu choice try again
+<span class="fc" id="L77">                out.println(&quot;\n  Error: &quot; + error.getMessage());</span>
+<span class="fc" id="L78">            } catch (IOException error) {</span>
+                // keep the app open so saving can be tried again
+<span class="fc" id="L80">                out.println(&quot;\n  Storage error: &quot; + error.getMessage());</span>
+<span class="fc" id="L81">                out.println(&quot;  Changes are still in memory. Try Save again or make a backup before restarting.&quot;);</span>
+<span class="fc" id="L82">            }</span>
+        }
+        // flush the last message before returning control to the terminal
+<span class="fc" id="L85">        out.println(&quot;CampusPlan closed.&quot;);</span>
+<span class="fc" id="L86">        out.flush();</span>
+<span class="fc" id="L87">    }</span>
+
+    private void printMainMenu() {
+<span class="fc" id="L90">        heading(&quot;CampusPlan | P1&quot;);</span>
+<span class="fc" id="L91">        var state = service.state();</span>
+<span class="fc" id="L92">        boxRow(String.format(&quot;%d students  /  %d rooms  /  %d drafts&quot;, state.students().size(),</span>
+<span class="fc" id="L93">                state.rooms().size(), state.events().size()));</span>
+<span class="fc bfc" id="L94" title="All 2 branches covered.">        boxRow(&quot;Status: &quot; + (dirty ? &quot;Unsaved changes&quot; : &quot;No pending changes&quot;));</span>
+<span class="fc bfc" id="L95" title="All 2 branches covered.">        if (state.isEmpty()) {</span>
+<span class="fc" id="L96">            boxRow(&quot;No saved records. Select [5] to load sample data.&quot;);</span>
+        }
+<span class="fc" id="L98">        menuSection(&quot;WORKSPACE&quot;);</span>
+<span class="fc" id="L99">        option(&quot;1&quot;, &quot;Students&quot;, &quot;Create, edit and search&quot;);</span>
+<span class="fc" id="L100">        option(&quot;2&quot;, &quot;Rooms&quot;, &quot;Browse and filter&quot;);</span>
+<span class="fc" id="L101">        option(&quot;3&quot;, &quot;Availability&quot;, &quot;View and update times&quot;);</span>
+<span class="fc" id="L102">        option(&quot;4&quot;, &quot;Draft events&quot;, &quot;Create and edit plans&quot;);</span>
+<span class="fc" id="L103">        menuSection(&quot;DATA&quot;);</span>
+<span class="fc" id="L104">        option(&quot;5&quot;, &quot;Load sample data&quot;);</span>
+<span class="fc" id="L105">        option(&quot;6&quot;, &quot;Save changes&quot;);</span>
+<span class="fc" id="L106">        border();</span>
+<span class="fc" id="L107">        option(&quot;0&quot;, &quot;Exit&quot;);</span>
+<span class="fc" id="L108">        border();</span>
+<span class="fc" id="L109">    }</span>
+
+    private void loadSampleData() throws IOException {
+<span class="fc" id="L112">        var sample = seed.load();</span>
+        // a missing sample file loads as empty, which is not useful to import
+<span class="fc bfc" id="L114" title="All 2 branches covered.">        if (sample.isEmpty()) {</span>
+<span class="fc" id="L115">            throw new IllegalArgumentException(&quot;Sample data is empty or the sample file is missing.&quot;);</span>
+        }
+        // the service stops samples from replacing records that are already there
+<span class="fc" id="L118">        service.loadSeed(sample);</span>
+        // loading samples changes the session too, so they still need saving
+<span class="fc" id="L120">        changed(&quot;Sample data loaded.&quot;);</span>
+<span class="fc" id="L121">    }</span>
+
+    private void students() throws IOException {
+<span class="fc" id="L124">        heading(&quot;Students&quot;);</span>
+<span class="fc" id="L125">        option(&quot;1&quot;, &quot;List students&quot;);</span>
+<span class="fc" id="L126">        option(&quot;2&quot;, &quot;Create student&quot;);</span>
+<span class="fc" id="L127">        option(&quot;3&quot;, &quot;Edit student&quot;);</span>
+<span class="fc" id="L128">        option(&quot;4&quot;, &quot;Search students&quot;);</span>
+<span class="fc" id="L129">        border();</span>
+<span class="fc" id="L130">        option(&quot;0&quot;, &quot;Back&quot;);</span>
+<span class="fc" id="L131">        border();</span>
+<span class="fc" id="L132">        out.println();</span>
+<span class="pc bpc" id="L133" title="3 of 6 branches missed.">        switch (read(&quot;Choice&quot;)) {</span>
+<span class="nc" id="L134">            case &quot;1&quot; -&gt; printStudents(service.state().students());</span>
+            case &quot;2&quot; -&gt; {
+<span class="fc" id="L136">                String name = read(&quot;Name&quot;);</span>
+                // let the service validate the email and create the student id
+<span class="fc" id="L138">                Student student = service.createStudent(name, read(&quot;Email&quot;));</span>
+<span class="fc" id="L139">                changed(&quot;Student created: &quot; + student.id());</span>
+<span class="fc" id="L140">            }</span>
+            case &quot;3&quot; -&gt; {
+                // choose the record before asking for its replacement fields
+<span class="fc" id="L143">                Student student = selectStudent();</span>
+<span class="fc" id="L144">                String name = read(&quot;Name [&quot; + student.name() + &quot;]&quot;);</span>
+<span class="fc" id="L145">                String email = read(&quot;Email [&quot; + student.email() + &quot;]&quot;);</span>
+                // blank fields keep the old values, and the student keeps the same id
+<span class="pc bpc" id="L147" title="1 of 2 branches missed.">                service.editStudent(student.id(), name.isEmpty() ? student.name() : name,</span>
+<span class="pc bpc" id="L148" title="1 of 2 branches missed.">                        email.isEmpty() ? student.email() : email);</span>
+<span class="fc" id="L149">                changed(&quot;Student updated: &quot; + student.id());</span>
+<span class="fc" id="L150">            }</span>
+            // search uses the current records, including edits that are not saved yet
+<span class="fc" id="L152">            case &quot;4&quot; -&gt; printStudents(service.searchStudents(read(&quot;Partial name or email&quot;)));</span>
+<span class="nc" id="L153">            case &quot;0&quot; -&gt; { }</span>
+<span class="nc" id="L154">            default -&gt; out.println(&quot;Choose a listed option.&quot;);</span>
+        }
+<span class="fc" id="L156">    }</span>
+
+    private void rooms() throws IOException {
+<span class="fc" id="L159">        heading(&quot;Rooms | open 08:00-22:00&quot;);</span>
+<span class="fc" id="L160">        option(&quot;1&quot;, &quot;List rooms&quot;);</span>
+<span class="fc" id="L161">        option(&quot;2&quot;, &quot;Filter rooms&quot;);</span>
+<span class="fc" id="L162">        border();</span>
+<span class="fc" id="L163">        option(&quot;0&quot;, &quot;Back&quot;);</span>
+<span class="fc" id="L164">        border();</span>
+<span class="fc" id="L165">        out.println();</span>
+<span class="fc" id="L166">        String choice = read(&quot;Choice&quot;);</span>
+        // backing out should not ask for any filter values
+<span class="pc bpc" id="L168" title="1 of 2 branches missed.">        if (choice.equals(&quot;0&quot;)) {</span>
+<span class="nc" id="L169">            return;</span>
+        }
+<span class="pc bpc" id="L171" title="2 of 4 branches missed.">        if (!choice.equals(&quot;1&quot;) &amp;&amp; !choice.equals(&quot;2&quot;)) {</span>
+<span class="nc" id="L172">            out.println(&quot;Choose a listed option.&quot;);</span>
+<span class="nc" id="L173">            return;</span>
+        }
+        // listing uses the widest filter; only option 2 asks for restrictions
+<span class="pc bpc" id="L176" title="1 of 2 branches missed.">        int capacity = choice.equals(&quot;2&quot;) ? integer(&quot;Minimum capacity&quot;) : 1;</span>
+<span class="pc bpc" id="L177" title="1 of 2 branches missed.">        Set&lt;Feature&gt; required = choice.equals(&quot;2&quot;) ? features() : Set.of();</span>
+        // the service checks capacity and makes sure every requested feature matches
+<span class="fc" id="L179">        var matches = service.filterRooms(capacity, required);</span>
+<span class="fc" id="L180">        section(&quot;ROOM CATALOGUE&quot;);</span>
+<span class="pc bpc" id="L181" title="1 of 2 branches missed.">        if (matches.isEmpty()) {</span>
+<span class="nc" id="L182">            out.println(&quot;No rooms match these requirements.&quot;);</span>
+        }
+        // keep room ids visible even though this menu does not edit rooms
+<span class="fc bfc" id="L185" title="All 2 branches covered.">        for (var room : matches) {</span>
+<span class="fc" id="L186">            out.printf(&quot;    %s | %d seats | %s%n&quot;, room.name(), room.capacity(),</span>
+<span class="fc" id="L187">                    featureNames(room.features()));</span>
+<span class="fc" id="L188">            out.println(&quot;      ID: &quot; + room.id());</span>
+<span class="fc" id="L189">            out.println();</span>
+<span class="fc" id="L190">        }</span>
+<span class="fc" id="L191">    }</span>
+
+    private void availability() throws IOException {
+<span class="fc" id="L194">        heading(&quot;Availability&quot;);</span>
+<span class="fc" id="L195">        option(&quot;1&quot;, &quot;View availability&quot;);</span>
+<span class="fc" id="L196">        option(&quot;2&quot;, &quot;Replace one date&quot;);</span>
+<span class="fc" id="L197">        border();</span>
+<span class="fc" id="L198">        option(&quot;0&quot;, &quot;Back&quot;);</span>
+<span class="fc" id="L199">        border();</span>
+<span class="fc" id="L200">        out.println();</span>
+<span class="fc" id="L201">        String choice = read(&quot;Choice&quot;);</span>
+<span class="pc bpc" id="L202" title="1 of 2 branches missed.">        if (choice.equals(&quot;0&quot;)) {</span>
+<span class="nc" id="L203">            return;</span>
+        }
+<span class="pc bpc" id="L205" title="2 of 4 branches missed.">        if (!choice.equals(&quot;1&quot;) &amp;&amp; !choice.equals(&quot;2&quot;)) {</span>
+<span class="nc" id="L206">            out.println(&quot;Choose a listed option.&quot;);</span>
+<span class="nc" id="L207">            return;</span>
+        }
+        // both actions work on one selected student
+<span class="fc" id="L210">        Student student = selectStudent();</span>
+<span class="pc bpc" id="L211" title="1 of 2 branches missed.">        if (choice.equals(&quot;1&quot;)) {</span>
+<span class="nc" id="L212">            printAvailability(student);</span>
+        } else {
+<span class="fc" id="L214">            replaceAvailability(student);</span>
+        }
+<span class="fc" id="L216">    }</span>
+
+    private void printAvailability(Student student) {
+        // show only this student's intervals, across all their recorded dates
+<span class="nc" id="L220">        var intervals = service.state().availability().stream()</span>
+<span class="nc" id="L221">                .filter(interval -&gt; interval.studentId().equals(student.id())).toList();</span>
+<span class="nc" id="L222">        section(&quot;AVAILABILITY / &quot; + student.name());</span>
+<span class="nc" id="L223">        out.println(&quot;  Student ID: &quot; + student.id());</span>
+<span class="nc" id="L224">        out.println();</span>
+<span class="nc bnc" id="L225" title="All 2 branches missed.">        if (intervals.isEmpty()) {</span>
+<span class="nc" id="L226">            out.println(&quot;No availability recorded.&quot;);</span>
+        }
+        // show the dates as well, since one student can have several days recorded
+<span class="nc bnc" id="L229" title="All 2 branches missed.">        if (!intervals.isEmpty()) {</span>
+<span class="nc" id="L230">            out.printf(&quot;    %-12s %s%n&quot;, &quot;DATE&quot;, &quot;AVAILABLE&quot;);</span>
+<span class="nc" id="L231">            out.printf(&quot;    %-12s %s%n&quot;, &quot;----------&quot;, &quot;-----------&quot;);</span>
+<span class="nc" id="L232">            intervals.forEach(interval -&gt; out.printf(&quot;    %-12s %s-%s%n&quot;, interval.date(), interval.start(), interval.end()));</span>
+        }
+<span class="nc" id="L234">    }</span>
+
+    private void replaceAvailability(Student student) throws IOException {
+        // replacing one date leaves the student's other dates alone
+<span class="fc" id="L238">        LocalDate date = date(&quot;Date (YYYY-MM-DD, today or later)&quot;);</span>
+<span class="fc" id="L239">        int count = integer(&quot;Number of intervals (0 clears this date)&quot;);</span>
+        // there are at most 28 half-hour slots between 08:00 and 22:00
+<span class="pc bpc" id="L241" title="2 of 4 branches missed.">        if (count &lt; 0 || count &gt; 28) {</span>
+<span class="nc" id="L242">            throw new IllegalArgumentException(&quot;Enter 0-28 intervals for one date.&quot;);</span>
+        }
+        // finish reading the form first so bad input cannot leave half an update
+<span class="fc" id="L245">        List&lt;Availability&gt; intervals = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L246" title="All 2 branches covered.">        for (int i = 0; i &lt; count; i++) {</span>
+<span class="fc" id="L247">            LocalTime start = time(&quot;Interval &quot; + (i + 1) + &quot; start (HH:MM)&quot;);</span>
+<span class="fc" id="L248">            LocalTime end = time(&quot;Interval &quot; + (i + 1) + &quot; end (HH:MM)&quot;);</span>
+            // the interval checks its times before it can reach the service
+<span class="fc" id="L250">            intervals.add(new Availability(student.id(), date, start, end));</span>
+        }
+        // an empty list clears the date; overlapping or touching intervals get merged
+<span class="fc" id="L253">        var merged = service.setAvailability(student.id(), date, intervals);</span>
+<span class="fc" id="L254">        changed(&quot;Availability updated for &quot; + student.name() + &quot; on &quot; + date + &quot;.&quot;);</span>
+        // print the merged result so the user can see what was kept
+<span class="fc" id="L256">        merged.forEach(interval -&gt; out.printf(&quot;%s-%s%n&quot;, interval.start(), interval.end()));</span>
+<span class="fc" id="L257">    }</span>
+
+    private void drafts() throws IOException {
+<span class="fc" id="L260">        heading(&quot;Draft events&quot;);</span>
+<span class="fc" id="L261">        option(&quot;1&quot;, &quot;List drafts&quot;);</span>
+<span class="fc" id="L262">        option(&quot;2&quot;, &quot;Create draft&quot;);</span>
+<span class="fc" id="L263">        option(&quot;3&quot;, &quot;Edit draft&quot;);</span>
+<span class="fc" id="L264">        option(&quot;4&quot;, &quot;View details&quot;);</span>
+<span class="fc" id="L265">        border();</span>
+<span class="fc" id="L266">        option(&quot;0&quot;, &quot;Back&quot;);</span>
+<span class="fc" id="L267">        border();</span>
+<span class="fc" id="L268">        out.println();</span>
+<span class="pc bpc" id="L269" title="3 of 6 branches missed.">        switch (read(&quot;Choice&quot;)) {</span>
+<span class="nc" id="L270">            case &quot;1&quot; -&gt; printEvents();</span>
+            // the same form handles a new draft or an existing draft
+<span class="fc" id="L272">            case &quot;2&quot; -&gt; editDraft(null);</span>
+<span class="fc" id="L273">            case &quot;3&quot; -&gt; editDraft(selectEvent());</span>
+<span class="fc" id="L274">            case &quot;4&quot; -&gt; printEvent(selectEvent());</span>
+<span class="nc" id="L275">            case &quot;0&quot; -&gt; { }</span>
+<span class="nc" id="L276">            default -&gt; out.println(&quot;Choose a listed option.&quot;);</span>
+        }
+<span class="fc" id="L278">    }</span>
+
+    private void editDraft(DraftEvent current) throws IOException {
+        // show the old fields first when this is an edit
+<span class="fc bfc" id="L282" title="All 2 branches covered.">        if (current != null) {</span>
+<span class="fc" id="L283">            printEvent(current);</span>
+<span class="fc" id="L284">            out.println(&quot;Enter replacement planning fields below. The event ID stays the same.&quot;);</span>
+        }
+<span class="fc" id="L286">        String title = read(&quot;Title&quot;);</span>
+        // the form uses menu numbers, then turns those into student ids
+<span class="fc" id="L288">        List&lt;String&gt; invitees = readInviteeIds();</span>
+<span class="fc" id="L289">        LocalDate start = date(&quot;First date (YYYY-MM-DD, today or later)&quot;);</span>
+<span class="fc" id="L290">        LocalDate end = date(&quot;Last date (YYYY-MM-DD)&quot;);</span>
+        // keep all the planning fields local until the whole form has been read
+<span class="fc" id="L292">        int duration = integer(&quot;Duration in minutes (30-180, steps of 30)&quot;);</span>
+<span class="fc" id="L293">        Set&lt;Feature&gt; required = features();</span>
+<span class="fc" id="L294">        int minimum = integer(&quot;Minimum attendance&quot;);</span>
+        // only a new draft gets a new id; editing passes the existing id back
+<span class="fc bfc" id="L296" title="All 2 branches covered.">        DraftEvent event = current == null</span>
+<span class="fc" id="L297">                ? service.createDraft(title, invitees, start, end, duration, required, minimum)</span>
+<span class="fc" id="L298">                : service.editDraft(current.id(), title, invitees, start, end, duration, required, minimum);</span>
+        // mark it changed only after the service accepts the completed form
+<span class="fc bfc" id="L300" title="All 2 branches covered.">        changed(&quot;Draft &quot; + (current == null ? &quot;created&quot; : &quot;updated&quot;) + &quot;: &quot; + event.id());</span>
+<span class="fc" id="L301">        printEvent(event);</span>
+<span class="fc" id="L302">    }</span>
+
+    private List&lt;String&gt; readInviteeIds() throws IOException {
+<span class="fc" id="L305">        printStudents(service.state().students());</span>
+<span class="fc" id="L306">        out.println(&quot;  Choose 2-20 different students from the list above.&quot;);</span>
+<span class="fc" id="L307">        out.println(&quot;  Use the number before each name, not their ID, name or email.&quot;);</span>
+<span class="fc" id="L308">        out.println(&quot;  Example: 1,2 selects the first and second students.&quot;);</span>
+<span class="fc" id="L309">        String selected = read(&quot;Student list numbers, separated by commas&quot;);</span>
+<span class="fc" id="L310">        List&lt;String&gt; invitees = new ArrayList&lt;&gt;();</span>
+        // keep empty entries so a trailing comma is caught as bad input too
+<span class="fc bfc" id="L312" title="All 2 branches covered.">        for (String number : selected.split(&quot;,&quot;, -1)) {</span>
+<span class="fc" id="L313">            int index = parseInteger(number.trim(), &quot;Student list number&quot;);</span>
+            // store the actual id, not the position shown in the menu
+<span class="fc" id="L315">            invitees.add(at(service.state().students(), index, &quot;student&quot;).id());</span>
+        }
+<span class="fc" id="L317">        return invitees;</span>
+    }
+
+    private Student selectStudent() throws IOException {
+        // show the list again so the selection uses the current ordering
+<span class="fc" id="L322">        printStudents(service.state().students());</span>
+<span class="fc" id="L323">        return at(service.state().students(), integer(&quot;Student number&quot;), &quot;student&quot;);</span>
+    }
+
+    private DraftEvent selectEvent() throws IOException {
+        // select from the current list, including newly created drafts
+<span class="fc" id="L328">        printEvents();</span>
+<span class="fc" id="L329">        return at(service.state().events(), integer(&quot;Event number&quot;), &quot;event&quot;);</span>
+    }
+
+    private &lt;T&gt; T at(List&lt;T&gt; items, int number, String kind) {
+        // reject the menu number before using it as a list position
+<span class="pc bpc" id="L334" title="1 of 4 branches missed.">        if (number &lt; 1 || number &gt; items.size()) {</span>
+<span class="fc" id="L335">            throw new IllegalArgumentException(&quot;Choose a listed &quot; + kind + &quot; number.&quot;);</span>
+        }
+        // menu numbers start at 1, but list positions start at 0
+<span class="fc" id="L338">        return items.get(number - 1);</span>
+    }
+
+    private void printStudents(List&lt;Student&gt; students) {
+<span class="fc" id="L342">        section(&quot;STUDENT RECORDS&quot;);</span>
+        // an empty search or list should still give the user a clear result
+<span class="pc bpc" id="L344" title="1 of 2 branches missed.">        if (students.isEmpty()) {</span>
+<span class="nc" id="L345">            out.println(&quot;No students found.&quot;);</span>
+        }
+<span class="fc bfc" id="L347" title="All 2 branches covered.">        for (int i = 0; i &lt; students.size(); i++) {</span>
+<span class="fc" id="L348">            var student = students.get(i);</span>
+            // the number is for choosing a row; the id belongs to the stored record
+<span class="fc" id="L350">            out.printf(&quot;    %d. %s | %s%n&quot;, i + 1, student.name(), student.email());</span>
+<span class="fc" id="L351">            out.println(&quot;       ID: &quot; + student.id());</span>
+<span class="fc" id="L352">            out.println();</span>
+        }
+<span class="fc" id="L354">    }</span>
+
+    private void printEvents() {
+<span class="fc" id="L357">        var events = service.state().events();</span>
+<span class="fc" id="L358">        section(&quot;DRAFT RECORDS&quot;);</span>
+<span class="fc bfc" id="L359" title="All 2 branches covered.">        if (events.isEmpty()) {</span>
+<span class="fc" id="L360">            out.println(&quot;No draft events.&quot;);</span>
+        }
+        // p1 events are drafts, so this list does not try to schedule or confirm them
+<span class="fc bfc" id="L363" title="All 2 branches covered.">        for (int i = 0; i &lt; events.size(); i++) {</span>
+<span class="fc" id="L364">            var event = events.get(i);</span>
+<span class="fc" id="L365">            out.printf(&quot;    %d. %s | DRAFT%n&quot;, i + 1, event.title());</span>
+<span class="fc" id="L366">            out.printf(&quot;       %s to %s | %d minutes%n&quot;, event.startDate(), event.endDate(), event.durationMinutes());</span>
+<span class="fc" id="L367">            out.println(&quot;       ID: &quot; + event.id());</span>
+<span class="fc" id="L368">            out.println();</span>
+        }
+<span class="fc" id="L370">    }</span>
+
+    private void printEvent(DraftEvent event) {
+<span class="fc" id="L373">        section(&quot;DRAFT DETAILS&quot;);</span>
+        // show the id here too so an edited draft can be recognised later
+<span class="fc" id="L375">        out.println(&quot;  Title: &quot; + event.title());</span>
+<span class="fc" id="L376">        out.println(&quot;  ID: &quot; + event.id());</span>
+<span class="fc" id="L377">        out.println(&quot;  Status: DRAFT&quot;);</span>
+<span class="fc" id="L378">        out.println();</span>
+        // show the planning window and constraints before the invitee responses
+<span class="fc" id="L380">        out.printf(&quot;  Window: %s to %s | Duration: %d minutes%n&quot;, event.startDate(), event.endDate(), event.durationMinutes());</span>
+<span class="fc" id="L381">        out.printf(&quot;  Minimum attendance: %d of %d%n&quot;, event.minimumAttendance(), event.inviteeIds().size());</span>
+<span class="fc" id="L382">        out.println(&quot;  Required features: &quot; + featureNames(event.requiredFeatures()));</span>
+<span class="fc" id="L383">        section(&quot;INVITEES&quot;);</span>
+        // responses stay pending in p1; saving a draft does not confirm attendance
+<span class="fc bfc" id="L385" title="All 2 branches covered.">        for (String id : event.inviteeIds()) {</span>
+<span class="fc" id="L386">            out.println(&quot;    &quot; + service.student(id).name() + &quot; | PENDING&quot;);</span>
+<span class="fc" id="L387">        }</span>
+<span class="fc" id="L388">    }</span>
+
+    private Set&lt;Feature&gt; features() throws IOException {
+<span class="fc" id="L391">        String value = read(&quot;Features (WHITEBOARD, PROJECTOR, ACCESSIBLE; blank for none)&quot;);</span>
+<span class="fc" id="L392">        Set&lt;Feature&gt; result = EnumSet.noneOf(Feature.class);</span>
+        // leaving this blank means there are no required room features
+<span class="fc bfc" id="L394" title="All 2 branches covered.">        if (!value.isEmpty()) {</span>
+<span class="fc bfc" id="L395" title="All 2 branches covered.">            for (String item : value.split(&quot;,&quot;, -1)) {</span>
+                try {
+                    // accept different letter cases and spaces around each feature
+<span class="fc" id="L398">                    result.add(Feature.valueOf(item.trim().toUpperCase(Locale.ROOT)));</span>
+<span class="fc" id="L399">                } catch (IllegalArgumentException error) {</span>
+                    // show which entry failed instead of exposing the enum error
+<span class="fc" id="L401">                    throw new IllegalArgumentException(&quot;Unknown feature: &quot; + item.trim());</span>
+<span class="fc" id="L402">                }</span>
+            }
+        }
+<span class="fc" id="L405">        return result;</span>
+    }
+
+    private String featureNames(Set&lt;Feature&gt; features) {
+        // keep the display order stable, even if the set was built in another order
+<span class="fc bfc" id="L410" title="All 2 branches covered.">        return features.isEmpty() ? &quot;none&quot; : features.stream().sorted().map(Enum::name)</span>
+<span class="pc" id="L411">                .reduce((first, next) -&gt; first + &quot;, &quot; + next).orElse(&quot;none&quot;);</span>
+    }
+
+    private LocalDate date(String prompt) throws IOException {
+        try {
+<span class="fc" id="L416">            return LocalDate.parse(read(prompt));</span>
+<span class="fc" id="L417">        } catch (DateTimeParseException error) {</span>
+            // turn the parser's message into the format the menu expects
+<span class="fc" id="L419">            throw new IllegalArgumentException(&quot;Use a valid date in YYYY-MM-DD format.&quot;);</span>
+        }
+    }
+
+    private LocalTime time(String prompt) throws IOException {
+        try {
+<span class="fc" id="L425">            return LocalTime.parse(read(prompt));</span>
+<span class="nc" id="L426">        } catch (DateTimeParseException error) {</span>
+            // actual time boundaries are checked when the interval is created
+<span class="nc" id="L428">            throw new IllegalArgumentException(&quot;Use a valid time in HH:MM format.&quot;);</span>
+        }
+    }
+
+    private int integer(String prompt) throws IOException {
+        // reuse the same number check for menu selections and planning fields
+<span class="fc" id="L434">        return parseInteger(read(prompt), prompt);</span>
+    }
+
+    private int parseInteger(String value, String label) {
+        try {
+<span class="fc" id="L439">            return Integer.parseInt(value);</span>
+<span class="fc" id="L440">        } catch (NumberFormatException error) {</span>
+            // include the field name so the user knows which number was wrong
+<span class="fc" id="L442">            throw new IllegalArgumentException(label + &quot; must be a whole number.&quot;);</span>
+        }
+    }
+
+    private String read(String prompt) throws IOException {
+<span class="fc" id="L447">        out.print(&quot;  &quot; + prompt + &quot; &gt; &quot;);</span>
+        // print the prompt before waiting for input, even without a newline
+<span class="fc" id="L449">        out.flush();</span>
+<span class="fc" id="L450">        String line = input.readLine();</span>
+        // eof is different from a blank answer and is handled by the main loop
+<span class="fc bfc" id="L452" title="All 2 branches covered.">        if (line == null) {</span>
+<span class="fc" id="L453">            throw new EOFException();</span>
+        }
+        // ignore accidental spaces around an answer
+<span class="fc" id="L456">        return line.trim();</span>
+    }
+
+    private void heading(String title) {
+        // use one layout for the main menu and each submenu
+<span class="fc" id="L461">        out.println();</span>
+<span class="fc" id="L462">        border();</span>
+<span class="fc" id="L463">        int padding = Math.max(0, (BOX_WIDTH - title.length()) / 2);</span>
+<span class="fc" id="L464">        boxRow(&quot; &quot;.repeat(padding) + title);</span>
+<span class="fc" id="L465">        border();</span>
+<span class="fc" id="L466">    }</span>
+
+    private void section(String title) {
+<span class="fc" id="L469">        heading(title);</span>
+<span class="fc" id="L470">        out.println();</span>
+<span class="fc" id="L471">    }</span>
+
+    private void menuSection(String title) {
+<span class="fc" id="L474">        border();</span>
+<span class="fc" id="L475">        boxRow(title);</span>
+<span class="fc" id="L476">    }</span>
+
+    private void border() {
+<span class="fc" id="L479">        out.println(&quot;  +&quot; + &quot;-&quot;.repeat(BOX_WIDTH + 2) + &quot;+&quot;);</span>
+<span class="fc" id="L480">    }</span>
+
+    private void boxRow(String text) {
+        // Wrap long record headings instead of letting them break the right border.
+<span class="pc bpc" id="L484" title="1 of 2 branches missed.">        while (text.length() &gt; BOX_WIDTH) {</span>
+<span class="nc" id="L485">            int split = text.lastIndexOf(' ', BOX_WIDTH);</span>
+<span class="nc bnc" id="L486" title="All 2 branches missed.">            if (split &lt;= 0) {</span>
+<span class="nc" id="L487">                split = BOX_WIDTH;</span>
+            }
+<span class="nc" id="L489">            out.printf(&quot;  | %-&quot; + BOX_WIDTH + &quot;s |%n&quot;, text.substring(0, split));</span>
+<span class="nc" id="L490">            text = text.substring(split).stripLeading();</span>
+<span class="nc" id="L491">        }</span>
+<span class="fc" id="L492">        out.printf(&quot;  | %-&quot; + BOX_WIDTH + &quot;s |%n&quot;, text);</span>
+<span class="fc" id="L493">    }</span>
+
+    private void option(String key, String label) {
+<span class="fc" id="L496">        boxRow(&quot;  [&quot; + key + &quot;] &quot; + label);</span>
+<span class="fc" id="L497">    }</span>
+
+    private void option(String key, String label, String description) {
+<span class="fc" id="L500">        boxRow(String.format(&quot;  [%s] %-18s %s&quot;, key, label, description));</span>
+<span class="fc" id="L501">    }</span>
+
+    private void changed(String message) {
+        // successful edits need a save, but viewing records does not
+<span class="fc" id="L505">        dirty = true;</span>
+<span class="fc" id="L506">        out.println(&quot;\n  &quot; + message);</span>
+<span class="fc" id="L507">    }</span>
+
+    private void save() throws IOException {
+<span class="fc" id="L510">        service.save();</span>
+        // only clear this after saving works, so a failed save keeps the reminder
+<span class="fc" id="L512">        dirty = false;</span>
+<span class="fc" id="L513">        out.println(&quot;\n  Saved.&quot;);</span>
+<span class="fc" id="L514">    }</span>
+
+    private boolean exit() throws IOException {
+        // there is nothing to ask about when the session has no unsaved changes
+<span class="fc bfc" id="L518" title="All 2 branches covered.">        if (!dirty) {</span>
+<span class="fc" id="L519">            return false;</span>
+        }
+        // true keeps the main loop running; false actually exits
+<span class="fc bfc" id="L522" title="All 3 branches covered.">        return switch (read(&quot;Save changes before exit? (yes/no/cancel)&quot;).toLowerCase(Locale.ROOT)) {</span>
+            case &quot;yes&quot;, &quot;y&quot; -&gt; {
+                // if this fails, the main loop handles the error and stays open
+<span class="fc" id="L525">                save();</span>
+<span class="fc" id="L526">                yield false;</span>
+            }
+            case &quot;no&quot;, &quot;n&quot; -&gt; {
+                // discard the session changes only when the user chooses to
+<span class="fc" id="L530">                out.println(&quot;Closing without saving changes.&quot;);</span>
+<span class="fc" id="L531">                yield false;</span>
+            }
+            // cancel or an unrecognised answer returns to the main menu
+<span class="fc" id="L534">            default -&gt; true;</span>
+        };
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

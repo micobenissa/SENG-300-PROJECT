@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>AppState.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">campusplan</a> &gt; <a href="index.source.html" class="el_package">campusplan.domain</a> &gt; <span class="el_source">AppState.java</span></div><h1>AppState.java</h1><pre class="source lang-java linenums">package campusplan.domain;
+
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Set;
+
+public record AppState(List&lt;Student&gt; students, List&lt;Room&gt; rooms,
+                       List&lt;Availability&gt; availability, List&lt;DraftEvent&gt; events) {
+<span class="fc" id="L12">    public AppState {</span>
+<span class="fc" id="L13">        Rules.items(students, &quot;Students&quot;);</span>
+<span class="fc" id="L14">        Rules.items(rooms, &quot;Rooms&quot;);</span>
+<span class="fc" id="L15">        Rules.items(availability, &quot;Availability&quot;);</span>
+<span class="fc" id="L16">        Rules.items(events, &quot;Events&quot;);</span>
+        // Keep callers from changing the lists after this state has been checked.
+<span class="fc" id="L18">        students = List.copyOf(students);</span>
+<span class="fc" id="L19">        rooms = List.copyOf(rooms);</span>
+<span class="fc" id="L20">        events = List.copyOf(events);</span>
+
+<span class="fc" id="L22">        Set&lt;String&gt; studentIds = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L23">        Set&lt;String&gt; emails = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L24" title="All 2 branches covered.">        for (Student student : students) {</span>
+<span class="fc bfc" id="L25" title="All 4 branches covered.">            if (!studentIds.add(student.id()) || !emails.add(student.email())) {</span>
+<span class="fc" id="L26">                throw new IllegalArgumentException(&quot;Student IDs and emails must be unique.&quot;);</span>
+            }
+<span class="fc" id="L28">        }</span>
+<span class="fc" id="L29">        Set&lt;String&gt; roomIds = new HashSet&lt;&gt;();</span>
+<span class="fc" id="L30">        Set&lt;String&gt; roomNames = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L31" title="All 2 branches covered.">        for (Room room : rooms) {</span>
+<span class="fc bfc" id="L32" title="All 4 branches covered.">            if (!roomIds.add(room.id()) || !roomNames.add(room.name().toLowerCase(Locale.ROOT))) {</span>
+<span class="fc" id="L33">                throw new IllegalArgumentException(&quot;Room IDs and names must be unique.&quot;);</span>
+            }
+<span class="fc" id="L35">        }</span>
+<span class="fc" id="L36">        Set&lt;String&gt; eventIds = new HashSet&lt;&gt;();</span>
+<span class="fc bfc" id="L37" title="All 2 branches covered.">        for (DraftEvent event : events) {</span>
+<span class="fc bfc" id="L38" title="All 2 branches covered.">            if (!eventIds.add(event.id())) {</span>
+<span class="fc" id="L39">                throw new IllegalArgumentException(&quot;Event IDs must be unique.&quot;);</span>
+            }
+<span class="fc bfc" id="L41" title="All 2 branches covered.">            if (!studentIds.containsAll(event.inviteeIds())) {</span>
+<span class="fc" id="L42">                throw new IllegalArgumentException(&quot;Event contains an unknown student ID.&quot;);</span>
+            }
+<span class="fc" id="L44">        }</span>
+<span class="fc bfc" id="L45" title="All 2 branches covered.">        for (Availability interval : availability) {</span>
+<span class="fc bfc" id="L46" title="All 2 branches covered.">            if (!studentIds.contains(interval.studentId())) {</span>
+<span class="fc" id="L47">                throw new IllegalArgumentException(&quot;Availability contains an unknown student ID.&quot;);</span>
+            }
+<span class="fc" id="L49">        }</span>
+<span class="fc" id="L50">        availability = merge(availability);</span>
+<span class="fc" id="L51">    }</span>
+
+    private static List&lt;Availability&gt; merge(List&lt;Availability&gt; intervals) {
+        // Put each student's intervals in order before joining touching ones.
+<span class="fc" id="L55">        List&lt;Availability&gt; sorted = intervals.stream().sorted(Comparator</span>
+<span class="fc" id="L56">                .comparing(Availability::studentId).thenComparing(Availability::date)</span>
+<span class="fc" id="L57">                .thenComparing(Availability::start).thenComparing(Availability::end)).toList();</span>
+<span class="fc" id="L58">        List&lt;Availability&gt; result = new ArrayList&lt;&gt;();</span>
+<span class="fc bfc" id="L59" title="All 2 branches covered.">        for (Availability next : sorted) {</span>
+<span class="fc bfc" id="L60" title="All 2 branches covered.">            if (!result.isEmpty()) {</span>
+<span class="fc" id="L61">                Availability last = result.getLast();</span>
+<span class="fc bfc" id="L62" title="All 4 branches covered.">                if (last.studentId().equals(next.studentId()) &amp;&amp; last.date().equals(next.date())</span>
+<span class="fc bfc" id="L63" title="All 2 branches covered.">                        &amp;&amp; !next.start().isAfter(last.end())) {</span>
+                    // Joined intervals also cover events crossing their shared boundary.
+<span class="fc" id="L65">                    result.set(result.size() - 1, new Availability(last.studentId(), last.date(),</span>
+<span class="fc bfc" id="L66" title="All 2 branches covered.">                            last.start(), last.end().isAfter(next.end()) ? last.end() : next.end()));</span>
+<span class="fc" id="L67">                    continue;</span>
+                }
+            }
+<span class="fc" id="L70">            result.add(next);</span>
+<span class="fc" id="L71">        }</span>
+<span class="fc" id="L72">        return List.copyOf(result);</span>
+    }
+
+    public static AppState empty() {
+<span class="fc" id="L76">        return new AppState(List.of(), List.of(), List.of(), List.of());</span>
+    }
+
+    public boolean isEmpty() {
+<span class="pc bpc" id="L80" title="2 of 8 branches missed.">        return students.isEmpty() &amp;&amp; rooms.isEmpty() &amp;&amp; availability.isEmpty() &amp;&amp; events.isEmpty();</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

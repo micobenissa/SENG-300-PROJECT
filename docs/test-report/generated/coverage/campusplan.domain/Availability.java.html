@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Availability.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">campusplan</a> &gt; <a href="index.source.html" class="el_package">campusplan.domain</a> &gt; <span class="el_source">Availability.java</span></div><h1>Availability.java</h1><pre class="source lang-java linenums">package campusplan.domain;
+
+import java.time.LocalDate;
+import java.time.LocalTime;
+
+
+
+/**
+ * One block of time when a single student is free, on one date.
+ *
+ * This is a record that once created, the student, date and times
+ * cannot change. A record is always valid because the constructor
+ * rejects bad input.
+ *
+ * Intervals are half open meaning that for example
+ * 13:00-14:00 does not overlap 14:00-15:00.
+ * A student with no availability record for an event's time is unavailable.
+ *
+ * @param studentId ID of the student this availability belongs to
+ * @param date the single date the interval is on
+ * @param start start time (inclusive), on a 30 minute boundary
+ * @param end end time (exclusive), on a 30 minute boundary
+ */
+public record Availability(String studentId, LocalDate date, LocalTime start, LocalTime end) {
+
+    /**
+     * Validates every field when an availability is created.
+     * If any rule fails  an exception is thrown and no object is created,
+     * so invalid data can never be stored.
+     */
+<span class="fc" id="L31">    public Availability {</span>
+
+        // checks the student ID text is valid
+<span class="fc" id="L34">        studentId = Rules.text(studentId, &quot;Student ID&quot;, Integer.MAX_VALUE);</span>
+
+        // rejects null values and with a message
+<span class="fc" id="L37">        Rules.present(date, &quot;Availability date&quot;);</span>
+<span class="fc" id="L38">        Rules.present(start, &quot;Start time&quot;);</span>
+<span class="fc" id="L39">        Rules.present(end, &quot;End time&quot;);</span>
+
+        // Start must be before end.
+<span class="fc bfc" id="L42" title="All 2 branches covered.">        if (!start.isBefore(end)) {</span>
+<span class="fc" id="L43">            throw new IllegalArgumentException(&quot;Start time must be before end time.&quot;);</span>
+        }
+
+        // The interval must fit inside opening hours which is from 08:00 to 22:00.
+<span class="fc bfc" id="L47" title="All 4 branches covered.">        if (start.isBefore(LocalTime.of(8, 0)) || end.isAfter(LocalTime.of(22, 0))) {</span>
+<span class="fc" id="L48">            throw new IllegalArgumentException(&quot;Availability must be within 08:00-22:00.&quot;);</span>
+        }
+
+        // Both times must be on a 30 minute boundary 
+<span class="fc bfc" id="L52" title="All 4 branches covered.">        if (!boundary(start) || !boundary(end)) {</span>
+<span class="fc" id="L53">            throw new IllegalArgumentException(&quot;Times must use 30-minute boundaries.&quot;);</span>
+        }
+<span class="fc" id="L55">    }</span>
+
+     /**
+     * Checks that a time is exactly on a 30 minute boundary.
+     *
+     * @param time the time to check
+     * @return true if the minute is 0 or 30 and there are no seconds or
+     * fractions of a second (so 10:00:01 is rejected)
+     */
+    private static boolean boundary(LocalTime time) {
+<span class="fc bfc" id="L65" title="All 6 branches covered.">        return time.getMinute() % 30 == 0 &amp;&amp; time.getSecond() == 0 &amp;&amp; time.getNano() == 0;</span>
+    }
+
+    /**
+     * Says whether this interval covers a whole event.
+     * A student only counts as available if the entire event fits inside
+     * one interval.
+     *
+     * @param day the date of the event
+     * @param eventStart the event's start time
+     * @param eventEnd the event's end time
+     * @return true if the dates match, the event starts at or after this
+     * interval's start, ends at or before its end, and has a positive length
+     */
+    public boolean covers(LocalDate day, LocalTime eventStart, LocalTime eventEnd) {
+        // The whole event has to fit inside this interval.
+<span class="fc bfc" id="L81" title="All 6 branches covered.">        return date.equals(day) &amp;&amp; !eventStart.isBefore(start) &amp;&amp; !eventEnd.isAfter(end)</span>
+<span class="fc bfc" id="L82" title="All 2 branches covered.">                &amp;&amp; eventStart.isBefore(eventEnd);</span>
+    }
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>

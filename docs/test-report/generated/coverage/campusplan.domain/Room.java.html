@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml" lang="en"><head><meta http-equiv="Content-Type" content="text/html;charset=UTF-8"/><link rel="stylesheet" href="../jacoco-resources/report.css" type="text/css"/><link rel="shortcut icon" href="../jacoco-resources/report.gif" type="image/gif"/><title>Room.java</title><link rel="stylesheet" href="../jacoco-resources/prettify.css" type="text/css"/><script type="text/javascript" src="../jacoco-resources/prettify.js"></script></head><body onload="window['PR_TAB_WIDTH']=4;prettyPrint()"><div class="breadcrumb" id="breadcrumb"><span class="info"><a href="../jacoco-sessions.html" class="el_session">Sessions</a></span><a href="../index.html" class="el_report">campusplan</a> &gt; <a href="index.source.html" class="el_package">campusplan.domain</a> &gt; <span class="el_source">Room.java</span></div><h1>Room.java</h1><pre class="source lang-java linenums">package campusplan.domain;
+
+import java.util.Set;
+
+/* immutable domain object representing a bookable room on campus
+ * id = unique identifier for room
+ * name = human readable room name
+ * capacity = # of ppl the room holds
+ * features = equipment/etc in the room (whiteboard, projector, etc)
+ */
+public record Room(String id, String name, int capacity, Set&lt;Feature&gt; features) {
+    // validates all components before assigning fields
+<span class="fc" id="L13">    public Room {</span>
+<span class="fc" id="L14">        id = Rules.text(id, &quot;Room ID&quot;, Integer.MAX_VALUE); // validate id by normalizing (could be trimming) it</span>
+<span class="fc" id="L15">        name = Rules.text(name, &quot;Room name&quot;, 60); // max character limit is 60</span>
+<span class="fc bfc" id="L16" title="All 4 branches covered.">        if (capacity &lt; 1 || capacity &gt; 100) { // capacity from 1-100</span>
+<span class="fc" id="L17">            throw new IllegalArgumentException(&quot;Room capacity must be 1-100.&quot;);</span>
+        }
+<span class="fc" id="L19">        Rules.items(features, &quot;Room features&quot;); // reject null set</span>
+<span class="fc" id="L20">        features = Set.copyOf(features); // creates an unmodifiable snapshot so features can't be modified by the user/callers</span>
+<span class="fc" id="L21">    }</span>
+}
+</pre><div class="footer"><span class="right">Created with <a href="http://www.jacoco.org/jacoco">JaCoCo</a> 0.8.13.202504020838</span></div></body></html>
