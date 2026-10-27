@@ -1,6 +1,6 @@
 # P1 tests
 
-We ran `.mvnw.cmd clean verify` on 26 October 2026 using JDK 21 and Maven 3.9.11 on Windows 11 Home `10.0.26200`. All **88 tests passed**, with no failures, errors or skipped tests. The reports match code commit `ff2d5d67dadf616ad5b35f63463e8fd95c500296`.
+We ran `.mvnw.cmd clean verify` on 26 October 2026 using JDK 21 and Maven 3.9.11 on Windows 11 Home `10.0.26200`. All **88 tests passed**, with no failures, errors or skipped tests. The reports match code commit `1ced4091d9c6e4fbd5b65c2303370697d69fc81a`.
 
 ## Run the checks
 

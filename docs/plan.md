@@ -52,8 +52,6 @@ The [requirements](requirements.md) give the rules and acceptance criteria. [Tra
 | P3, week 8 | Closures, affected events, replacement previews and confirmation | FR-09 and FR-10 preserve reservations, responses and history correctly, including failed changes and undo. |
 | P3, week 9 | Full regression tests, updated diagrams, user guide and final handover | FR-11, migration tests and final demonstrations are complete. Brief deadline: 9 December 2026. |
 
-The brief gives two different P1 deadlines. We record that open point in [requirements](requirements.md#assumptions-and-open-points).
-
 ## Proposed next owners
 
 This is our proposed split for P2/P3, including release coordination. These assignments are subject to change if problems arise or anyone's availability changes. We will agree on any changes as a group.
@@ -93,13 +91,13 @@ For NFR-03, we will test 20 invitees, 20 rooms, a seven-day window and 100 event
 
 ## Review evidence
 
-Our P1 work is in PRs #9-#16. Reviews helped us catch an ID mismatch before integration: Selina found that the student code used `int` IDs, while the other components used String IDs. Divakar fixed it in [fad5ed5](https://github.com/micobenissa/SENG-300-PROJECT/commit/fad5ed593ec71301a98da74b1a16ca636ea62f13) and requested another review.
+Our P1 work is in PRs #9-#16. Reviews helped us catch an ID mismatch before integration: Selina found that the student code used `int` IDs, while the other components used String IDs. Divakar fixed it in [fad5ed5](https://github.com/micobenissa/SENG-300-PROJECT/commit/fad5ed593ec71301a98da74b1a16ca636ea62f13), and Selina merged the corrected PR.
 
 | PR | Recorded review |
 | --- | --- |
 | [#9 setup](https://github.com/micobenissa/SENG-300-PROJECT/pull/9) | Divakar approved and included local build evidence. |
 | [#10 rooms](https://github.com/micobenissa/SENG-300-PROJECT/pull/10) | Saarim approved. |
-| [#11 students](https://github.com/micobenissa/SENG-300-PROJECT/pull/11) | Selina reported the ID mismatch; Divakar fixed it. The available records do not show a final approval after that fix. |
+| [#11 students](https://github.com/micobenissa/SENG-300-PROJECT/pull/11) | Selina identified the ID mismatch, Divakar corrected it, and Selina merged the updated PR. |
 | [#12 availability](https://github.com/micobenissa/SENG-300-PROJECT/pull/12) | Sardar approved. |
 | [#13 drafts](https://github.com/micobenissa/SENG-300-PROJECT/pull/13) | Abdullah approved. |
 | [#14 service/storage](https://github.com/micobenissa/SENG-300-PROJECT/pull/14) | AbduMalek approved. |
