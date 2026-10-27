@@ -1,22 +1,22 @@
 # P1 tests
 
-We ran `.mvnw.cmd clean verify` on 26 October 2026 using JDK 21 and Maven 3.9.11 on Windows 11 Home `10.0.26200`. All **88 tests passed**, with no failures, errors or skipped tests. The reports match code commit `1ced4091d9c6e4fbd5b65c2303370697d69fc81a`.
+We ran `.\mvnw.cmd clean verify` on 26 October 2026 using JDK 21 and Maven 3.9.11 on Windows 11 Home `10.0.26200`. All **88 tests passed**, with no failures, errors or skipped tests. The reports were regenerated from tested source commit `b161358302bf3a1630749cf1bd0faf09da387c4b`.
 
 ## Run the checks
 
 From the project root:
 
 ```powershell
-.mvnw.cmd clean verify
+.\mvnw.cmd clean verify
 ```
 
 For the service, date and storage tests only:
 
 ```powershell
-.mvnw.cmd "-Dtest=CampusPlanServiceTest,JsonStorageTest,PastDateTest" test
+.\mvnw.cmd "-Dtest=CampusPlanServiceTest,JsonStorageTest,PastDateTest" test
 ```
 
-Close the CLI before rebuilding because Windows can lock the running JAR. On macOS/Linux, use `./mvnw` instead of `.mvnw.cmd`.
+Close the CLI before rebuilding because Windows can lock the running JAR. On macOS/Linux, use `./mvnw` instead of `.\mvnw.cmd`.
 
 ## Included reports
 
