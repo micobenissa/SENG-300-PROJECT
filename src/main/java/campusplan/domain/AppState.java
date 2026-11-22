@@ -47,10 +47,61 @@ public record AppState(List<Student> students, List<Room> rooms,
                 throw new IllegalArgumentException("Availability contains an unknown student ID.");
             }
         }
-        availability = merge(availability);
+        availability = mergeIntervals(availability);
+        checkSchedule(rooms, availability, events);
     }
 
-    private static List<Availability> merge(List<Availability> intervals) {
+    // Reservations and accepted attendance must never conflict, in any state the app can hold or load.
+    private static void checkSchedule(List<Room> rooms, List<Availability> availability, List<DraftEvent> events) {
+        Set<String> roomIds = new HashSet<>();
+        rooms.forEach(room -> roomIds.add(room.id()));
+        List<DraftEvent> scheduled = events.stream().filter(DraftEvent::isScheduled).toList();
+        for (int i = 0; i < scheduled.size(); i++) {
+            DraftEvent event = scheduled.get(i);
+            if (!roomIds.contains(event.roomId())) {
+                throw new IllegalArgumentException("Event \"" + event.title() + "\" uses an unknown room.");
+            }
+            for (int j = i + 1; j < scheduled.size(); j++) {
+                DraftEvent other = scheduled.get(j);
+                if (event.roomId().equals(other.roomId())
+                        && event.overlaps(other.scheduledDate(), other.startTime(), other.endTime())) {
+                    throw new IllegalArgumentException("Events \"" + event.title() + "\" and \"" + other.title()
+                            + "\" reserve the same room at overlapping times.");
+                }
+                for (String studentId : event.inviteeIds()) {
+                    if (event.responses().get(studentId) == AttendanceResponse.ACCEPTED
+                            && other.responses().get(studentId) == AttendanceResponse.ACCEPTED
+                            && event.overlaps(other.scheduledDate(), other.startTime(), other.endTime())) {
+                        throw new IllegalArgumentException("A student accepted overlapping events \""
+                                + event.title() + "\" and \"" + other.title() + "\".");
+                    }
+                }
+            }
+            for (String studentId : event.inviteeIds()) {
+                if (event.responses().get(studentId) == AttendanceResponse.ACCEPTED
+                        && availability.stream().noneMatch(interval -> interval.studentId().equals(studentId)
+                        && interval.covers(event.scheduledDate(), event.startTime(), event.endTime()))) {
+                    throw new IllegalArgumentException("A student accepted \"" + event.title()
+                            + "\" without availability for the whole time.");
+                }
+            }
+        }
+    }
+
+    public AppState withStudents(List<Student> students) {
+        return new AppState(students, rooms, availability, events);
+    }
+
+    public AppState withAvailability(List<Availability> availability) {
+        return new AppState(students, rooms, availability, events);
+    }
+
+    public AppState withEvents(List<DraftEvent> events) {
+        return new AppState(students, rooms, availability, events);
+    }
+
+    /** Sorts intervals and joins overlapping or touching ones for each student and date. */
+    public static List<Availability> mergeIntervals(List<Availability> intervals) {
         // Put each student's intervals in order before joining touching ones.
         List<Availability> sorted = intervals.stream().sorted(Comparator
                 .comparing(Availability::studentId).thenComparing(Availability::date)

@@ -64,10 +64,13 @@ class DraftEventTest {
         pending.clear();
         assertEquals(2, copy.responses().size());
         assertThrows(UnsupportedOperationException.class, () -> copy.responses().clear());
-        for (EventStatus status : new EventStatus[]{null, EventStatus.SCHEDULED, EventStatus.CANCELLED}) {
+        // P2: a status is required, and SCHEDULED needs a room and time (a CANCELLED event is now valid).
+        for (EventStatus status : new EventStatus[]{null, EventStatus.SCHEDULED}) {
             assertThrows(IllegalArgumentException.class, () -> new DraftEvent("e2", "Study", invitees,
                     DAY, DAY, 60, Set.of(), 2, status, draft.responses()));
         }
+        assertEquals(EventStatus.CANCELLED, new DraftEvent("e2", "Study", invitees,
+                DAY, DAY, 60, Set.of(), 2, EventStatus.CANCELLED, draft.responses()).status());
         List<Map<String, AttendanceResponse>> invalidResponses = List.of(
                 Map.of(), Map.of("s1", AttendanceResponse.PENDING),
                 Map.of("s1", AttendanceResponse.PENDING, "other", AttendanceResponse.PENDING),
