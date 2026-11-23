@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Set;
 
 import campusplan.domain.Availability;
+import campusplan.domain.DraftEvent;
 import campusplan.domain.Feature;
 import campusplan.domain.Room;
 import campusplan.domain.Student;
@@ -90,5 +91,20 @@ public final class PlanFixture {
     public static List<Availability> freeAll(List<String> studentIds, LocalDate date, String start, String end) {
         return studentIds.stream().map(id -> free(id, date, start, end)).toList();
     }
-    
+
+    /**
+     * Creates a draft event with the given invitees, duration, minimum attendance, and features
+     *
+     * @param id - id of event
+     * @param invitees - list of student ids i
+     * @param minutes - duration of the event 
+     * @param minimum - minimum number of students required
+     * @param features - features required for the event
+     *
+     * @return - a new draft event 
+     */
+    public static DraftEvent draft(String id, List<String> invitees, int minutes, int minimum, Feature... features) {
+        return new DraftEvent(id, "Event " + id, invitees, DAY, DAY, minutes,
+                features.length == 0 ? Set.of() : Set.of(features), minimum);
+    }
 }
