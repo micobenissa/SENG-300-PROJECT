@@ -1,10 +1,12 @@
 package campusplan.application.scheduling;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import campusplan.domain.Availability;
 import campusplan.domain.Feature;
 import campusplan.domain.Room;
 import campusplan.domain.Student;
@@ -61,5 +63,18 @@ public final class PlanFixture {
         return new Room(id, "Room " + id, capacity, features.length == 0 ? Set.of() : Set.of(features));
     }
 
+    /**
+     * Creates an availability record for a student
+     *
+     * @param studentId - id
+     * @param date - date the student is available
+     * @param start - starting time 
+     * @param end - ending time 
+     *
+     * @return - availability record
+     */
+    public static Availability free(String studentId, LocalDate date, String start, String end) {
+        return new Availability(studentId, date, LocalTime.parse(start), LocalTime.parse(end));
+    }
 
 }
