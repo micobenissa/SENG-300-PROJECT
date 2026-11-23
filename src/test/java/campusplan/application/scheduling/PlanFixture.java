@@ -6,11 +6,13 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
 
+import campusplan.domain.AppState;
 import campusplan.domain.Availability;
 import campusplan.domain.DraftEvent;
 import campusplan.domain.Feature;
 import campusplan.domain.Room;
 import campusplan.domain.Student;
+
 
 public final class PlanFixture {
     public static final LocalDate DAY = LocalDate.of(2026, 11, 16);
@@ -107,4 +109,20 @@ public final class PlanFixture {
         return new DraftEvent(id, "Event " + id, invitees, DAY, DAY, minutes,
                 features.length == 0 ? Set.of() : Set.of(features), minimum);
     }
+
+    /**
+     * Creates an application state containing the given students, rooms, availability records, and events.
+     *
+     * @param students - list of students
+     * @param rooms - list of rooms
+     * @param availability - list of student availability records
+     * @param events - list of draft events
+     *
+     * @return - a new application state 
+     */
+    public static AppState state(List<Student> students, List<Room> rooms, List<Availability> availability,
+                                List<DraftEvent> events) {
+        return new AppState(students, rooms, availability, events);
+    }
+
 }
