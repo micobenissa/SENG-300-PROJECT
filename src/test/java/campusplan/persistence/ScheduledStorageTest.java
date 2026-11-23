@@ -127,4 +127,18 @@ class ScheduledStorageTest {
         assertArrayEquals(before, Files.readAllBytes(path));
     }
 
+    /**
+     * Tests that an event with a status inconsistent with its scheduling information is rejected when loading a JSON file.
+     * 
+     * @throws IOException - if fails
+     */
+    @Test
+    void anEventWithAnInconsistentStatusIsRejectedAsCorrupt() throws IOException {
+        Path path = directory.resolve("bad.json");
+        new JsonStorage(path).save(scheduledState());
+        String bad = Files.readString(path).replaceFirst("\"status\" : \"DRAFT\"", "\"status\" : \"SCHEDULED\"");
+        Files.writeString(path, bad, StandardCharsets.UTF_8);
+        assertThrows(IOException.class, () -> new JsonStorage(path).load());
+    }
+
 }
