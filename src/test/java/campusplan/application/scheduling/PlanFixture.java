@@ -28,4 +28,22 @@ public final class PlanFixture {
 
         return students;
     }
+
+    /**
+     * Creates a list of sequential ids.
+     * 
+     * @param first - what the first id number will be
+     * @param last - what the last id number will be
+     * 
+     * @return - list of ids
+     */
+    public static List<String> ids(int first, int last) {
+        List<String> ids = new ArrayList<>();
+        for (int i = first; i <= last; i++) {
+            ids.add("s" + i);
+        }
+        return ids;
+    }
+
+
 }
