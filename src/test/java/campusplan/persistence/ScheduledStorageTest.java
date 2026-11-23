@@ -1,5 +1,15 @@
 package campusplan.persistence;
 
+import campusplan.domain.AppState;
+import campusplan.domain.AttendanceResponse;
+import campusplan.domain.Availability;
+import campusplan.domain.DraftEvent;
+import campusplan.domain.EventStatus;
+import campusplan.domain.Room;
+import campusplan.domain.Student;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -8,20 +18,6 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
-
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
-import campusplan.domain.AppState;
-import campusplan.domain.AttendanceResponse;
-import campusplan.domain.Availability;
-import campusplan.domain.DraftEvent;
-import campusplan.domain.EventStatus;
-import campusplan.domain.Room;
-import campusplan.domain.Student;
 
 class ScheduledStorageTest {
 
@@ -106,5 +102,29 @@ class ScheduledStorageTest {
         assertNull(event.startTime());
     }
 
+    /**
+     * Tests that conflicting room reservations are detected
+     * Also checks that a file is not overwritte when a conflict is found
+     * 
+     * @throws IOException - if it fails
+     */
+    @Test
+    void conflictingReservationsInAFileAreReportedAndTheFileIsNotOverwritten() throws IOException {
+        Path path = directory.resolve("conflict.json");
+        new JsonStorage(path).save(scheduledState());
+        // Turn the cancelled event into a second SCHEDULED event in the same room and time as e1.
+        var mapper = new com.fasterxml.jackson.databind.ObjectMapper();
+        var tree = (com.fasterxml.jackson.databind.node.ObjectNode) mapper.readTree(path.toFile());
+        var twin = (com.fasterxml.jackson.databind.node.ObjectNode) tree.get("events").get(2);
+        twin.put("status", "SCHEDULED").put("roomId", "R1").put("scheduledDate", "2026-11-16")
+                .put("startTime", "09:00").put("endTime", "10:00");
+        mapper.writeValue(path.toFile(), tree);
+        byte[] before = Files.readAllBytes(path);
+        IOException error = assertThrows(IOException.class, () -> new JsonStorage(path).load());
+        assertTrue(error.getMessage().contains("The file was not changed"));
+        assertTrue(error.getMessage().contains("reserve the same room"), error.getMessage());
+        assertThrows(IOException.class, () -> new JsonStorage(path).save(AppState.empty()));
+        assertArrayEquals(before, Files.readAllBytes(path));
+    }
 
 }
