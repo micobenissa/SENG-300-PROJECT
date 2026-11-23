@@ -3,7 +3,10 @@ package campusplan.application.scheduling;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
+import campusplan.domain.Feature;
+import campusplan.domain.Room;
 import campusplan.domain.Student;
 
 public final class PlanFixture {
@@ -43,6 +46,19 @@ public final class PlanFixture {
             ids.add("s" + i);
         }
         return ids;
+    }
+
+    /**
+     * Creates a new room.
+     * 
+     * @param id - id of room
+     * @param capacity - maximum number of people the room can hold
+     * @param features - features of room
+     *
+     * @return - a new room
+ */
+    public static Room room(String id, int capacity, Feature... features) {
+        return new Room(id, "Room " + id, capacity, features.length == 0 ? Set.of() : Set.of(features));
     }
 
 
