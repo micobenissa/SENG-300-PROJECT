@@ -77,4 +77,18 @@ public final class PlanFixture {
         return new Availability(studentId, date, LocalTime.parse(start), LocalTime.parse(end));
     }
 
+    /**
+     * Creates availability records for multiple students using the same date and time
+     *
+     * @param studentIds - list of ids
+     * @param date - date the students are available
+     * @param start - starting time of availability
+     * @param end - ending time of availability
+     *
+     * @return - list of availability records
+     */
+    public static List<Availability> freeAll(List<String> studentIds, LocalDate date, String start, String end) {
+        return studentIds.stream().map(id -> free(id, date, start, end)).toList();
+    }
+    
 }
