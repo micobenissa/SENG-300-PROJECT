@@ -1,15 +1,5 @@
 package campusplan.persistence;
 
-import campusplan.domain.AppState;
-import campusplan.domain.AttendanceResponse;
-import campusplan.domain.Availability;
-import campusplan.domain.DraftEvent;
-import campusplan.domain.EventStatus;
-import campusplan.domain.Room;
-import campusplan.domain.Student;
-import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.io.TempDir;
-
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -18,6 +8,20 @@ import java.time.LocalDate;
 import java.time.LocalTime;
 import java.util.List;
 import java.util.Set;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+import campusplan.domain.AppState;
+import campusplan.domain.AttendanceResponse;
+import campusplan.domain.Availability;
+import campusplan.domain.DraftEvent;
+import campusplan.domain.EventStatus;
+import campusplan.domain.Room;
+import campusplan.domain.Student;
 
 class ScheduledStorageTest {
 
@@ -75,5 +79,32 @@ class ScheduledStorageTest {
         // The file really is UTF-8 and keeps non-ASCII names readable.
         assertTrue(Files.readString(directory.resolve("data.json"), StandardCharsets.UTF_8).contains("Zoë Ångström"));
     }
+
+
+    /**
+     * Tests that a P1 JSON file without scheduling fields can still be loaded.
+     * Basically just makes sure that P1 data still works in P2 implementation
+     * 
+     * @throws IOException - if it fails
+     */
+    @Test
+    void aP1FileWithoutSchedulingFieldsStillLoadsAsDrafts() throws IOException {
+        String p1 = """
+                {"students":[{"id":"s1","name":"A","email":"a@x.ca"},{"id":"s2","name":"B","email":"b@x.ca"}],
+                 "rooms":[{"id":"R1","name":"Cedar","capacity":4,"features":[]}],
+                 "availability":[],
+                 "events":[{"id":"e1","title":"Old draft","inviteeIds":["s1","s2"],"startDate":"2026-10-24",
+                  "endDate":"2026-10-24","durationMinutes":60,"requiredFeatures":[],"minimumAttendance":2,
+                  "status":"DRAFT","responses":{"s1":"PENDING","s2":"PENDING"}}]}
+                """;
+        Path path = directory.resolve("p1.json");
+        Files.writeString(path, p1, StandardCharsets.UTF_8);
+        AppState loaded = new JsonStorage(path).load();
+        DraftEvent event = loaded.events().getFirst();
+        assertEquals(EventStatus.DRAFT, event.status());
+        assertNull(event.roomId());
+        assertNull(event.startTime());
+    }
+
 
 }
