@@ -9,19 +9,19 @@ import java.util.Optional;
  * These are the attendance rules shared by scheduling suggestions and response entry.
  * 
  * A student can attend an interval when one availability interval
- * covers all of it and the student has no accepted another scheduled event that overlaps it.
+ * covers all of it and the student has not accepted another scheduled event that overlaps it.
  * pending and declined responses, drafts and cancelled events never block anyone. 
- * Intervals are half open so times to not overlap.
- * Eligibility
+ * Intervals are half open so times do not overlap.
  */
-public class Eligibility {
+public final class Eligibility {
     private Eligibility() {}
 
     /*This checks whether the student’s availability covers the whole time */
     public static boolean isAvailable(AppState state, String studentId, LocalDate date,
         LocalTime start, LocalTime end) {
-    return state.availability().stream().anyMatch(interval -> interval.studentId().equals(studentId)
-    && interval.covers(date, start, end));                                
+        
+        return state.availability().stream().anyMatch(interval -> interval.studentId().equals(studentId)
+         && interval.covers(date, start, end));                                
     }
 
     /** The other scheduled event that the student has already accepted at this time */
@@ -43,7 +43,7 @@ public class Eligibility {
      */
     public static Optional<String> ineligibleReason(AppState state, String studentId, LocalDate date,
         LocalTime start, LocalTime end, String ignoredEventId) {
-            
+
         if (!isAvailable(state, studentId, date, start, end)) {
             return Optional.of("not available for the whole time");
         }
