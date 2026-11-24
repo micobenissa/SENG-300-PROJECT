@@ -78,10 +78,41 @@ class AvailabilityTest {
 
 
     /**
+     * The earliest slot, the latest slot and the whole day are inside 08:00-22:00
+     */
+    @ParameterizedTest 
+    @CsvSource({"08:00,08:30", "21:30,22:00", "08:00,22:00"})
+    void intervalsTouchingOpeningAndClosingAreAccepted(String start, String end){
+        Availability slot = interval("s1", DAY,start,end);
+        assertEquals(DAY, slot.date());
+        assertEquals(LocalTime.parse(start), slot.start());
+        assertEquals(LocalTime.parse(end), slot.end());
+    }
+    /**
+     * One slot outside opening hours on either side is rejected.
+     *
+     * 07:30,08:00 ends exactly at opening but starts before it
+     * 07:30,09:00 starts before opening
+     * 00:00,08:00 starts at midnight
+     * 21:30,22:30 ends after closing
+     * 22:00,22:30 starts exactly at closing
+     */
+    @ParameterizedTest
+    @CsvSource({"07:30,08:00", "07:30,09:00", "00:00,08:00", "21:30,22:30", "22:00,22:30"})
+    void intervalsOutsideOpeningHoursAreRejected(String start, String end) {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> interval("s1", DAY, start, end));
+        assertEquals("Availability must be within 08:00-22:00.", error.getMessage());
+    }
+    
+    /**
      * Helper that builds an Availability from text times like 08:00
      * so the test rows stay short and readable.
      */
     private static Availability interval(String student, LocalDate day, String start, String end) {
         return new Availability(student, day, LocalTime.parse(start), LocalTime.parse(end));
     }
+
+
+
 }
