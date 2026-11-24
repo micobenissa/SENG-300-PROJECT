@@ -5,6 +5,7 @@ import campusplan.domain.DraftEvent;
 import campusplan.domain.Student;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -32,5 +33,10 @@ public final class PlanningContext{
     public DraftEvent event() {
         return event;
     }
+
+    
+    public record Ineligible(Student student, String reason) {}
+
+    public record Attendance(List<Student> eligible, List<Ineligible> ineligible) {}
 
 }
