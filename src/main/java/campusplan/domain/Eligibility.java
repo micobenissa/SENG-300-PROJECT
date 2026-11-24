@@ -34,6 +34,21 @@ public class Eligibility {
             .filter(event -> event.overlaps(date,start, end))
             .findFirst();
     } 
-
     
+    /**
+     * Why the student cannot attend the interval,
+     * This combines the two checks and returns the reason a student can’t attend
+     * 
+     * @param ignoredEventId an event whose own commitments are not counted
+     */
+    public static Optional<String> ineligibleReason(AppState state, String studentId, LocalDate date,
+        LocalTime start, LocalTime end, String ignoredEventId) {
+            
+        if (!isAvailable(state, studentId, date, start, end)) {
+            return Optional.of("not available for the whole time");
+        }
+        return acceptedConflict(state, studentId, date, start, end, ignoredEventId).map(event ->
+                "already accepted \"" + event.title() + "\" " + event.startTime() + "-" + event.endTime());
+    }
+
 }
