@@ -42,6 +42,40 @@ class AvailabilityTest {
         assertEquals("Start time must be before end time.", error.getMessage());
     }
 
+    /** 
+     * Start or end off the 30 minute mark is rejected
+     * 
+     * so that means that
+     * 10:15,11:00 and 10:45,11:30 start on a quarter hour
+     * 10:00,11:15 ends on a quarter hour
+     * 10:01,11:00 and 10:00,10:59 are one minute off
+     * 10:00:01,11:00 and 10:00,11:00:01 are one second off
+     */
+    @ParameterizedTest 
+    @CsvSource ({"10:15,11:00", "10:45,11:30", "10:00, 11:15", "10:01,11:00", "10:00, 10:59", "10:00:01,11:00", 
+        "10:00,11:00:01"
+    })
+    void timesOffTheThirtyMinuteMarkAreRejected(String start, String end){
+        IllegalArgumentException error = assertThrows (IllegalArgumentException.class, () -> interval("s1", DAY,start,end));
+        assertEquals("Times must use 30-minute boundaries.", error.getMessage());
+    }
+
+    @Test 
+    void aNanosecondOffTheMarkIsRejected() {
+        assertThrows(IllegalArgumentException.class,
+                () -> new Availability("s1", DAY, LocalTime.of(10, 0, 0, 1), LocalTime.of(11, 0)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Availability("s1", DAY, LocalTime.of(10, 0), LocalTime.of(11, 0, 0, 1)));
+    }
+
+    @ParameterizedTest 
+    @CsvSource ({"10:00,10:30", "10:30,11:00", "10:30,11:30", "10:00,11:00"})
+    void startAndEndOnTheHourOrHalfAreAccepted(String start, String end){
+        Availability slot = interval("s1", DAY, start,end);
+        assertEquals(LocalTime.parse(start),slot.start());
+        assertEquals(LocalTime.parse(end),slot.end());
+    }
+
 
     /**
      * Helper that builds an Availability from text times like 08:00
