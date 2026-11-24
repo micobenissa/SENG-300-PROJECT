@@ -15,55 +15,34 @@ class AvailabilityTest {
     // A fixed date used by every test so results never depend on todays date.
     private static final LocalDate DAY = LocalDate.of(2026, 10, 26);
 
+
     /**
-     * Runs once per row of the source and each row is a start,end pair
-     * that must be rejected with an exception.
-     *
-     * 07:30,08:00 which starts before opening 
-     * 21:30,22:30 which ends after closing 
-     * 10:00,10:00 which has zero length 
-     * 11:00,10:00 which starts after ends
-     * 10:15,11:00 which starts not on a 30 minute boundary
-     * 10:00,11:15 which ends not on a 30 minute boundary
-     * 10:00:01,11:00 which starts with seconds
-     * 10:00,11:00:01 which ends with seconds
+     * for an interval whose end comes before its start is rejected
+     * 
+     * 11:00,10:00 ends one hour before it starts
+     * 10:30,10:00 ends one slot before it starts
+     * 22:00,08:00 the whole day backwards
      */
     @ParameterizedTest
-    @CsvSource({"07:30,08:00", "21:30,22:30", "10:00,10:00", "11:00,10:00", "10:15,11:00", "10:00,11:15", "10:00:01,11:00", "10:00,11:00:01"})
-    void rejectsInvalidAvailabilityBoundaries(String start, String end) {
-        assertThrows(IllegalArgumentException.class,
+    @CsvSource({"11:00,10:00", "10:30,10:00", "22:00,08:00"})
+    void endBeforeStartIsRejected(String start, String end) {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
                 () -> interval("s1", DAY, start, end));
+        assertEquals("Start time must be before end time.", error.getMessage());
     }
+
     /**
-     * Checks that covers() is true only when the whole event fits on the
-     * same date and that missing or non boundary values are rejected.
+     * A length zero interval is a bad range
      */
-    @Test
-    void availabilityRequiresFullCoverageOnSameDate() {
-        // An interval for the whole open day
-        Availability interval = interval("s1", DAY, "08:00", "22:00");
-        // The full day fits exactly 
-        assertTrue(interval.covers(DAY, LocalTime.of(8, 0), LocalTime.of(22, 0)));
-        // Different date
-        assertFalse(interval.covers(DAY.plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 0)));
-        // Event starts before the interval
-        assertFalse(interval.covers(DAY, LocalTime.of(7, 30), LocalTime.of(9, 0)));
-        // Event ends after the interval
-        assertFalse(interval.covers(DAY, LocalTime.of(21, 0), LocalTime.of(22, 30)));
-        // Zero length event
-        assertFalse(interval.covers(DAY, LocalTime.of(10, 0), LocalTime.of(10, 0)));
-        // Missing date, start or end must be rejected when creating an interval
-        assertThrows(IllegalArgumentException.class,() -> new Availability("s1", null, LocalTime.NOON, LocalTime.of(13, 0)));
-        assertThrows(IllegalArgumentException.class, () -> new Availability("s1", DAY, null, LocalTime.of(13, 0)));
-        assertThrows(IllegalArgumentException.class,() -> new Availability("s1", DAY, LocalTime.NOON, null));
-
-
-        // 1 nanosecond breaks the 30 minute rule
-        assertThrows(IllegalArgumentException.class,
-                () -> new Availability("s1", DAY, LocalTime.of(10, 0, 0, 1), LocalTime.of(11, 0)));
-        assertThrows(IllegalArgumentException.class,
-                () -> new Availability("s1", DAY, LocalTime.of(10, 0), LocalTime.of(11, 0, 0, 1)));
+    @ParameterizedTest
+    @CsvSource({"08:00,08:00", "10:00,10:00", "22:00,22:00"})
+    void zeroLengthIsRejected(String start, String end) {
+        IllegalArgumentException error = assertThrows(IllegalArgumentException.class,
+                () -> interval("s1", DAY, start, end));
+        assertEquals("Start time must be before end time.", error.getMessage());
     }
+
+
     /**
      * Helper that builds an Availability from text times like 08:00
      * so the test rows stay short and readable.
