@@ -2,6 +2,7 @@ package campusplan.domain;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.Optional;
 
 
 /**
@@ -23,6 +24,16 @@ public class Eligibility {
     && interval.covers(date, start, end));                                
     }
 
+    /** The other scheduled event that the student has already accepted at this time */
+    public static Optional<DraftEvent> acceptedConflict(AppState state, String studentId, LocalDate date,
+        LocalTime start, LocalTime end, String ignoredEvent){
+          
+        return state.events().stream()
+            .filter(event -> !event.id().equals(ignoredEvent))
+            .filter(event -> event.responses().get(studentId) == AttendanceResponse.ACCEPTED)
+            .filter(event -> event.overlaps(date,start, end))
+            .findFirst();
+    } 
 
     
 }
