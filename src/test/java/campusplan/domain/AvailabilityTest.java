@@ -124,6 +124,44 @@ class AvailabilityTest {
         assertEquals("s1", interval(" s1 ", DAY, "10:00", "11:00").studentId());
     }
 
+    
+
+    /** covers() is true only when the whole event fits on the same date. */
+    @Test
+    void coverageRequiresTheWholeEventOnTheSameDate() {
+        Availability day = interval("s1", DAY, "08:00", "22:00");
+        assertTrue(day.covers(DAY, LocalTime.of(8, 0), LocalTime.of(22, 0)));
+        assertFalse(day.covers(DAY.plusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 0)));
+        assertFalse(day.covers(DAY.minusDays(1), LocalTime.of(8, 0), LocalTime.of(9, 0)));
+        assertFalse(day.covers(DAY, LocalTime.of(7, 30), LocalTime.of(9, 0)));
+        assertFalse(day.covers(DAY, LocalTime.of(21, 0), LocalTime.of(22, 30)));
+        assertFalse(day.covers(DAY, LocalTime.of(10, 0), LocalTime.of(10, 0)));
+    }
+
+    /**
+     * Inside a 10:00-12:00 interval, an event may start at 10:00 and end at 12:00,
+     * but not stick out by even one slot on either side.
+     *
+     * Columns: event start, event end, expected coverage.
+     */
+    @ParameterizedTest
+    @CsvSource({
+            "10:00,12:00,true",  // exactly the interval
+            "10:00,10:30,true", // first slot
+            "11:30,12:00,true",  // last slot
+            "10:30,11:30,true", // strictly inside
+            "09:30,10:30,false", // starts one slot early
+            "11:30,12:30,false", // ends one slot late
+            "09:00,13:00,false", // contains the interval
+            "09:00,10:00,false",// ends where the interval starts
+            "12:00,13:00,false", // starts where the interval ends
+            "11:00,10:00,false"  // backwards event
+    })
+    void coverageBoundariesAreHalfOpen(String start, String end, String expected) {
+        Availability slot = interval("s1", DAY, "10:00", "12:00");
+        assertEquals(Boolean.parseBoolean(expected),
+                slot.covers(DAY, LocalTime.parse(start), LocalTime.parse(end)));
+    }
     /**
      * Helper that builds an Availability from text times like 08:00
      * so the test rows stay short and readable.
