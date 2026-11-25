@@ -5,6 +5,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -161,6 +162,64 @@ class AvailabilityTest {
         Availability slot = interval("s1", DAY, "10:00", "12:00");
         assertEquals(Boolean.parseBoolean(expected),
                 slot.covers(DAY, LocalTime.parse(start), LocalTime.parse(end)));
+    }
+    
+
+    @Test
+    void overlappingIntervalsMergeIntoOne() {
+        List<Availability> merged = AppState.mergeIntervals(List.of(
+                interval("s1", DAY, "10:00", "12:00"),
+                interval("s1", DAY, "11:00", "13:00")));
+        assertEquals(List.of(interval("s1", DAY, "10:00", "13:00")), merged);
+    }
+
+    /** Touching intervals join so an event across the shared boundary is covered. */
+    @Test
+    void adjacentIntervalsMergeAndCoverAnEventAcrossTheBoundary() {
+        List<Availability> merged = AppState.mergeIntervals(List.of(
+                interval("s1", DAY, "10:00", "11:00"),
+                interval("s1", DAY, "11:00", "12:00")));
+        assertEquals(List.of(interval("s1", DAY, "10:00", "12:00")), merged);
+        assertTrue(merged.get(0).covers(DAY, LocalTime.of(10, 30), LocalTime.of(11, 30)));
+    }
+
+    @Test
+    void containedAndDuplicateIntervalsAreAbsorbed() {
+        List<Availability> merged = AppState.mergeIntervals(List.of(
+                interval("s1", DAY, "10:00", "14:00"),
+                interval("s1", DAY, "11:00", "12:00"),
+                interval("s1", DAY, "10:00", "14:00")));
+        assertEquals(List.of(interval("s1", DAY, "10:00", "14:00")), merged);
+    }
+
+    /** A 30 minute gap keeps intervals apart, so an event across the gap is not covered. */
+    @Test
+    void aGapKeepsIntervalsSeparate() {
+        List<Availability> merged = AppState.mergeIntervals(List.of(
+                interval("s1", DAY, "10:00", "11:00"),
+                interval("s1", DAY, "11:30", "12:30")));
+        assertEquals(2, merged.size());
+        assertTrue(merged.stream()
+                .noneMatch(slot -> slot.covers(DAY, LocalTime.of(10, 30), LocalTime.of(12, 0))));
+    }
+
+    @Test
+    void differentStudentsAndDatesNeverMerge() {
+        List<Availability> merged = AppState.mergeIntervals(List.of(
+                interval("s1", DAY, "10:00", "12:00"),
+                interval("s2", DAY, "11:00", "13:00"),
+                interval("s1", DAY.plusDays(1), "11:00", "13:00")));
+        assertEquals(3, merged.size());
+    }
+
+    /** Input order does not matter so an unsorted chain still becomes one interval. */
+    @Test
+    void mergingDoesNotDependOnInputOrder() {
+        List<Availability> merged = AppState.mergeIntervals(List.of(
+                interval("s1", DAY, "13:00", "14:00"),
+                interval("s1", DAY, "10:00", "11:00"),
+                interval("s1", DAY, "11:00", "13:00")));
+        assertEquals(List.of(interval("s1", DAY, "10:00", "14:00")), merged);
     }
     /**
      * Helper that builds an Availability from text times like 08:00
