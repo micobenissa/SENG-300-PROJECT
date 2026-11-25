@@ -104,7 +104,26 @@ class AvailabilityTest {
                 () -> interval("s1", DAY, start, end));
         assertEquals("Availability must be within 08:00-22:00.", error.getMessage());
     }
-    
+
+    @Test
+    void missingFieldsAreRejected(){
+        assertThrows(IllegalArgumentException.class,
+            () -> new Availability("s1", null, LocalTime.NOON, LocalTime.of(13, 0)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Availability("s1", DAY, null, LocalTime.of(13, 0)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Availability("s1", DAY, LocalTime.NOON, null));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Availability(null, DAY, LocalTime.NOON, LocalTime.of(13, 0)));
+        assertThrows(IllegalArgumentException.class,
+                () -> new Availability("   ", DAY, LocalTime.NOON, LocalTime.of(13, 0)));
+    }
+
+    @Test 
+    void studentIdIsTrimmed() {
+        assertEquals("s1", interval(" s1 ", DAY, "10:00", "11:00").studentId());
+    }
+
     /**
      * Helper that builds an Availability from text times like 08:00
      * so the test rows stay short and readable.
